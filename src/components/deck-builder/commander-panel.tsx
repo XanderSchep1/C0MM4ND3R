@@ -4,6 +4,7 @@ import { useState } from "react";
 import { cardImageUrl } from "@/lib/card-helpers";
 import { CardSearch } from "./card-search";
 import type { DeckCardEntry, ScryfallCard } from "./types";
+import { tileButtonClass } from "./card-tile";
 
 interface Props {
   deckId: string;
@@ -21,15 +22,14 @@ export function CommanderPanel({ deckId, commanders, onAdd, onRemove }: Props) {
         {commanders.map(({ card }) => {
           const img = cardImageUrl(card, "normal");
           return (
-            <div key={card.id} className="group relative w-32 shrink-0 overflow-hidden rounded-lg border border-black/10 dark:border-white/10">
-              {img && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={img} alt={card.name} className="w-full" />
-              )}
-              <button
-                onClick={() => onRemove(card.id)}
-                className="absolute right-1 top-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] text-white opacity-0 transition group-hover:opacity-100"
-              >
+            <div key={card.id} className="flex w-32 shrink-0 flex-col gap-1">
+              <div className="overflow-hidden rounded-lg border border-black/10 dark:border-white/10">
+                {img && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={img} alt={card.name} className="w-full" />
+                )}
+              </div>
+              <button onClick={() => onRemove(card.id)} className={tileButtonClass("secondary")}>
                 Remove
               </button>
             </div>

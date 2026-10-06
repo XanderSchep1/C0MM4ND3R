@@ -42,6 +42,7 @@ export interface ScryfallCard {
   card_faces?: ScryfallCardFace[];
   prices?: Record<string, string | null>;
   edhrec_rank?: number;
+  reprint?: boolean;
   scryfall_uri?: string;
   produced_mana?: string[];
 }
@@ -61,4 +62,14 @@ export interface ScryfallError {
   code: string;
   details: string;
   warnings?: string[];
+}
+
+export interface ScryfallSet {
+  code: string;
+  name: string;
+  released_at?: string;
+  set_type: string;
+  card_count: number;
+  digital: boolean;
+  icon_svg_uri?: string;
 }

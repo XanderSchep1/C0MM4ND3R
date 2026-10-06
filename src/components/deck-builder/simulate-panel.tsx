@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CardTile } from "./card-tile";
+import { CardTile, tileButtonClass } from "./card-tile";
 import { BRACKETS } from "./types";
 import type { ScryfallCard, DeckZone, SimulationResult, SuggestionGroup } from "./types";
 
@@ -125,7 +125,7 @@ export function SimulatePanel({ deckId, hasCommander, onAdd }: Props) {
         className="inline-flex max-w-max items-center gap-2 self-start rounded-md bg-black px-3 py-1.5 text-xs font-medium text-white disabled:opacity-40 dark:bg-white dark:text-black"
       >
         {loading && <span className="h-3 w-3 animate-spin rounded-full border-2 border-white/40 border-t-white dark:border-black/30 dark:border-t-black" />}
-        {loading ? "Playing 10 games…" : result ? "Run again" : "Run simulation"}
+        {loading ? "Simulating games…" : result ? "Run again" : "Run simulation"}
       </button>
       {!hasCommander && <p className="text-xs text-black/40 dark:text-white/40">Pick a commander first.</p>}
       {error && <p className="text-xs text-[#d03b3b]">{error}</p>}
@@ -167,8 +167,17 @@ export function SimulatePanel({ deckId, hasCommander, onAdd }: Props) {
               <div className="h-2 rounded-full bg-[#2a78d6] dark:bg-[#3987e5]" style={{ width: `${animatedWinRate}%` }} />
             </div>
             <div className="mt-1 text-xs text-black/50 dark:text-white/50">
-              Won {result.wins} of {result.games} simulated games against bracket {result.bracket} opponents.
+              About {Math.round(result.winRate * 100)}% (±{Math.max(1, Math.round(result.marginOfError * 100))}) over{" "}
+              {result.estimateGames.toLocaleString()} simulated games against bracket {result.bracket} opponents — a fair share in a
+              four-player game is 25%. The {result.games} cards above are the first {result.games} of those games (you won{" "}
+              {result.wins}); a handful of games is mostly luck, which is why the percentage uses thousands.
             </div>
+            {result.winRateIfFixed !== undefined && result.winRateIfFixed - result.winRate >= 0.01 && (
+              <div className="mt-1 text-xs text-black/60 dark:text-white/60">
+                If you matched bracket {result.bracket} norms on {result.weakSpots.map((w) => w.label.toLowerCase()).join(" and ")}, this
+                would be about {Math.round(result.winRateIfFixed * 100)}%.
+              </div>
+            )}
             {result.projectionScale > 1.1 && (
               <div className="mt-1 text-xs text-black/40 dark:text-white/40">
                 Your deck isn&apos;t full yet, so ramp/removal/draw/tutor/counterspell counts below are projected ×
@@ -221,7 +230,7 @@ export function SimulatePanel({ deckId, hasCommander, onAdd }: Props) {
             <div className="text-sm font-semibold">{group.label}</div>
             <div className="text-xs text-black/50 dark:text-white/50">{group.reason}</div>
           </div>
-          <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+          <div className="grid grid-cols-3 gap-2">
             {group.cards.map((card) => (
               <CardTile
                 key={card.id}
@@ -231,14 +240,14 @@ export function SimulatePanel({ deckId, hasCommander, onAdd }: Props) {
                     <button
                       onClick={() => handleAdd(card, "mainboard")}
                       disabled={addingId === card.id + "mainboard"}
-                      className="rounded bg-white px-2 py-1 text-[11px] font-medium text-black hover:bg-white/90 disabled:opacity-50"
+                      className={tileButtonClass("primary")}
                     >
                       Add
                     </button>
                     <button
                       onClick={() => handleAdd(card, "maybeboard")}
                       disabled={addingId === card.id + "maybeboard"}
-                      className="rounded bg-white/20 px-2 py-1 text-[11px] font-medium text-white hover:bg-white/30 disabled:opacity-50"
+                      className={tileButtonClass("secondary")}
                     >
                       Maybe
                     </button>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CardTile } from "./card-tile";
+import { CardTile, tileButtonClass } from "./card-tile";
 import type { ScryfallCard, SuggestionGroup } from "./types";
 
 interface Props {
@@ -62,7 +62,7 @@ export function SuggestionsPanel({ deckId, hasCommander, onAdd }: Props) {
             <div className="text-sm font-semibold">{group.label}</div>
             <div className="text-xs text-black/50 dark:text-white/50">{group.reason}</div>
           </div>
-          <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+          <div className="grid grid-cols-3 gap-2">
             {group.cards.map((card) => (
               <CardTile
                 key={card.id}
@@ -71,7 +71,7 @@ export function SuggestionsPanel({ deckId, hasCommander, onAdd }: Props) {
                   <button
                     onClick={() => handleAdd(card)}
                     disabled={addingId === card.id}
-                    className="rounded bg-white px-2 py-1 text-[11px] font-medium text-black hover:bg-white/90 disabled:opacity-50"
+                    className={tileButtonClass("primary")}
                   >
                     Add
                   </button>

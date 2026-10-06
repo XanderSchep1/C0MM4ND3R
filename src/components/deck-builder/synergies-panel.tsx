@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CardTile } from "./card-tile";
+import { CardTile, tileButtonClass } from "./card-tile";
 import type { ScryfallCard, SynergyGroup, DeckZone } from "./types";
 
 interface Props {
@@ -67,7 +67,7 @@ export function SynergiesPanel({ deckId, hasCommander, onAdd }: Props) {
             <div className="text-sm font-semibold capitalize">{group.label}</div>
             <div className="text-xs text-black/50 dark:text-white/50">{group.reason}</div>
           </div>
-          <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+          <div className="grid grid-cols-3 gap-2">
             {group.cards.map((card) => (
               <CardTile
                 key={card.id}
@@ -77,14 +77,14 @@ export function SynergiesPanel({ deckId, hasCommander, onAdd }: Props) {
                     <button
                       onClick={() => handleAdd(card, "mainboard")}
                       disabled={addingId === card.id + "mainboard"}
-                      className="rounded bg-white px-2 py-1 text-[11px] font-medium text-black hover:bg-white/90 disabled:opacity-50"
+                      className={tileButtonClass("primary")}
                     >
                       Add
                     </button>
                     <button
                       onClick={() => handleAdd(card, "maybeboard")}
                       disabled={addingId === card.id + "maybeboard"}
-                      className="rounded bg-white/20 px-2 py-1 text-[11px] font-medium text-white hover:bg-white/30 disabled:opacity-50"
+                      className={tileButtonClass("secondary")}
                     >
                       Maybe
                     </button>

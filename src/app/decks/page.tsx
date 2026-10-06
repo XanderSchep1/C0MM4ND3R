@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { NewDeckForm } from "@/components/new-deck-form";
+import { getRecentSets } from "@/lib/sets";
 
 export default async function DecksPage() {
   const session = await auth();
@@ -13,6 +14,9 @@ export default async function DecksPage() {
     orderBy: { updatedAt: "desc" },
     include: { _count: { select: { cards: true } } },
   });
+
+  const recentSets = await getRecentSets().catch(() => []);
+  const newSetCount = (deck: { upgradesSeenSets: string[] }) => recentSets.filter((s) => !deck.upgradesSeenSets.includes(s.code)).length;
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-10">
@@ -34,6 +38,11 @@ export default async function DecksPage() {
               >
                 <div className="font-medium">{deck.name}</div>
                 <div className="mt-1 text-xs text-black/50 dark:text-white/50">{deck._count.cards} cards · Commander</div>
+                {newSetCount(deck) > 0 && (
+                  <div className="mt-2 inline-block rounded bg-[#2a78d6]/10 px-1.5 py-0.5 text-[11px] font-medium text-[#2a78d6] dark:bg-[#3987e5]/15 dark:text-[#3987e5]">
+                    {newSetCount(deck)} new set{newSetCount(deck) === 1 ? "" : "s"} — check for upgrades
+                  </div>
+                )}
               </Link>
             </li>
           ))}

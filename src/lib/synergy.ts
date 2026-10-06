@@ -102,6 +102,12 @@ export function detectSynergySignals(
   return signals.sort((a, b) => b.count - a.count).slice(0, MAX_SIGNALS);
 }
 
+export function cardMatchesSignal(card: ScryfallCard, signal: SynergySignal): boolean {
+  if (signal.key.startsWith("tribal:")) return creatureSubtypes(card).includes(signal.key.slice("tribal:".length));
+  if (signal.key.startsWith("kw:")) return (card.keywords ?? []).includes(signal.key.slice("kw:".length));
+  return SYNERGY_THEMES.find((t) => t.key === signal.key)?.test(card) ?? false;
+}
+
 export interface SynergyGroup {
   key: string;
   label: string;

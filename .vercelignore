@@ -1,0 +1,5 @@
+.env
+.env.*
+.mcp.json
+.claude
+skills-lock.json

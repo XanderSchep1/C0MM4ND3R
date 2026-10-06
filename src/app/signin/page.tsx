@@ -1,23 +1,15 @@
 import { signIn } from "@/auth";
+import { AuthForm } from "@/components/auth-form";
 
 export default function SignInPage() {
   return (
     <div className="mx-auto flex max-w-sm flex-col gap-6 px-4 py-16">
       <div>
         <h1 className="text-xl font-semibold">Sign in</h1>
-        <p className="mt-1 text-sm text-black/60 dark:text-white/60">Build and tune your Commander decks.</p>
+        <p className="mt-1 text-sm text-black/60 dark:text-white/60">Sign in, or create an account, to build and tune your Commander decks.</p>
       </div>
 
-      <form
-        action={async () => {
-          "use server";
-          await signIn("google", { redirectTo: "/decks" });
-        }}
-      >
-        <button type="submit" className="w-full rounded-md bg-black px-4 py-2 text-sm font-medium text-white hover:bg-black/85 dark:bg-white dark:text-black dark:hover:bg-white/85">
-          Continue with Google
-        </button>
-      </form>
+      <AuthForm />
 
       {process.env.NODE_ENV !== "production" && (
         <div className="border-t border-black/10 pt-6 dark:border-white/10">

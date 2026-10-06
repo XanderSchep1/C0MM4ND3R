@@ -5,6 +5,7 @@ import { validateCommanderDeck } from "@/lib/commander";
 import { analyzeDeck, calculatePriceTotal, estimatePowerLevel } from "@/lib/deck-analysis";
 import { analyzeAnnoyance } from "@/lib/annoyance";
 import { colorIdentityUnion } from "@/lib/card-helpers";
+import { getRecentSets } from "@/lib/sets";
 import { DeckBuilder } from "@/components/deck-builder/deck-builder";
 
 export default async function DeckPage({ params }: { params: Promise<{ id: string }> }) {
@@ -24,6 +25,10 @@ export default async function DeckPage({ params }: { params: Promise<{ id: strin
   const priceTotal = calculatePriceTotal(ownedCards);
   const annoyance = analyzeAnnoyance(resolved.mainboard);
 
+  const newSetCount = await getRecentSets()
+    .then((sets) => sets.filter((s) => !deck.upgradesSeenSets.includes(s.code)).length)
+    .catch(() => 0);
+
   return (
     <DeckBuilder
       deckId={id}
@@ -33,6 +38,7 @@ export default async function DeckPage({ params }: { params: Promise<{ id: strin
       initialPowerLevel={powerLevel}
       initialPriceTotal={priceTotal}
       initialAnnoyance={annoyance}
+      newSetCount={newSetCount}
     />
   );
 }

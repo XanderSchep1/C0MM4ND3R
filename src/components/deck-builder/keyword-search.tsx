@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { buildKeywordClause } from "@/lib/search-query";
-import { CardTile } from "./card-tile";
+import { CardTile, tileButtonClass } from "./card-tile";
 import type { ScryfallCard, DeckZone } from "./types";
 
 interface Props {
@@ -71,7 +71,7 @@ export function KeywordSearch({ deckId, onAdd }: Props) {
           <p className="text-xs text-black/50 dark:text-white/50">
             Suggested adds using &quot;{term.trim()}&quot;, sorted by Commander popularity:
           </p>
-          <div className="grid max-h-[520px] grid-cols-3 gap-2 overflow-y-auto sm:grid-cols-4">
+          <div className="grid max-h-[520px] grid-cols-3 gap-2 overflow-y-auto">
             {cards.map((card) => (
               <CardTile
                 key={card.id}
@@ -81,14 +81,14 @@ export function KeywordSearch({ deckId, onAdd }: Props) {
                     <button
                       onClick={() => handleAdd(card, "mainboard")}
                       disabled={addingId === card.id + "mainboard"}
-                      className="rounded bg-white px-2 py-1 text-[11px] font-medium text-black hover:bg-white/90 disabled:opacity-50"
+                      className={tileButtonClass("primary")}
                     >
                       Add
                     </button>
                     <button
                       onClick={() => handleAdd(card, "maybeboard")}
                       disabled={addingId === card.id + "maybeboard"}
-                      className="rounded bg-white/20 px-2 py-1 text-[11px] font-medium text-white hover:bg-white/30 disabled:opacity-50"
+                      className={tileButtonClass("secondary")}
                     >
                       Maybe
                     </button>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CardTile } from "./card-tile";
+import { CardTile, tileButtonClass } from "./card-tile";
 import { CardHoverName } from "./card-hover-name";
 import { THEMES } from "./types";
 import type { AnnoyanceReport, ScryfallCard, DeckZone } from "./types";
@@ -85,7 +85,7 @@ export function SaltPanel({ deckId, report, onAdd }: Props) {
               <div className="mt-2">
                 {loadingFor === card.id && <p className="text-black/40 dark:text-white/40">Searching…</p>}
                 {alternatives[card.id]?.length === 0 && <p className="text-black/40 dark:text-white/40">No alternatives found.</p>}
-                <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+                <div className="grid grid-cols-3 gap-2">
                   {alternatives[card.id]?.map((alt) => (
                     <CardTile
                       key={alt.id}
@@ -93,7 +93,7 @@ export function SaltPanel({ deckId, report, onAdd }: Props) {
                       actions={
                         <button
                           onClick={() => onAdd(alt, "mainboard")}
-                          className="rounded bg-white px-2 py-1 text-[11px] font-medium text-black hover:bg-white/90"
+                          className={tileButtonClass("primary")}
                         >
                           Add
                         </button>

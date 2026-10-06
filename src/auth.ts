@@ -1,24 +1,37 @@
 import NextAuth, { type NextAuthConfig } from "next-auth";
-import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
-import { PrismaAdapter } from "@auth/prisma-adapter";
 
 import { prisma } from "@/lib/prisma";
+import { DUMMY_HASH, verifyPassword } from "@/lib/password";
 
-// Credentials providers force JWT sessions (Auth.js cannot persist a
-// database session for a credentials sign-in), so we use JWT for everyone.
-// The Prisma adapter is still used to create/link User & Account rows.
+// Email + password accounts, created in-app (see src/app/signin/actions.ts).
+// Credentials providers force JWT sessions, so no database sessions or
+// OAuth adapter are involved.
 const providers: NextAuthConfig["providers"] = [
-  Google({
-    clientId: process.env.AUTH_GOOGLE_ID,
-    clientSecret: process.env.AUTH_GOOGLE_SECRET,
+  Credentials({
+    id: "credentials",
+    name: "Email and password",
+    credentials: {
+      email: { label: "Email", type: "email" },
+      password: { label: "Password", type: "password" },
+    },
+    async authorize(raw) {
+      const email = typeof raw?.email === "string" ? raw.email.trim().toLowerCase() : "";
+      const password = typeof raw?.password === "string" ? raw.password : "";
+      if (!email || !password) return null;
+
+      const user = await prisma.user.findFirst({ where: { email: { equals: email, mode: "insensitive" } } });
+      const ok = await verifyPassword(password, user?.passwordHash ?? DUMMY_HASH);
+      if (!user || !user.passwordHash || !ok) return null;
+      return { id: user.id, email: user.email, name: user.name };
+    },
   }),
 ];
 
 if (process.env.NODE_ENV !== "production") {
-  // Dev-only "sign in as anyone" provider so you can test locally without
-  // setting up Google OAuth credentials. Never included in production
-  // builds since the check above runs at module load time.
+  // Dev-only "sign in as anyone" provider, so accounts that predate password
+  // sign-up (no passwordHash) stay reachable locally. Never registered in
+  // production builds since the check above runs at module load time.
   providers.push(
     Credentials({
       id: "dev-login",
@@ -43,7 +56,6 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  adapter: PrismaAdapter(prisma),
   providers,
   session: {
     strategy: "jwt",

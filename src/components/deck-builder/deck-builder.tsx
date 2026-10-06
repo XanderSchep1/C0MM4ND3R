@@ -14,6 +14,8 @@ import { SynergiesPanel } from "./synergies-panel";
 import { CombosPanel } from "./combos-panel";
 import { SaltPanel } from "./salt-panel";
 import { SimulatePanel } from "./simulate-panel";
+import { UpgradesPanel } from "./upgrades-panel";
+import { LandsPanel } from "./lands-panel";
 import { ShareControl } from "./share-control";
 import { Decklist } from "./decklist";
 import type { ResolvedDeck, ValidationResult, DeckAnalysis, ScryfallCard, DeckZone, PowerLevelEstimate, PriceTotal, AnnoyanceReport } from "./types";
@@ -26,11 +28,12 @@ interface Props {
   initialPowerLevel: PowerLevelEstimate;
   initialPriceTotal: PriceTotal;
   initialAnnoyance: AnnoyanceReport;
+  newSetCount: number;
 }
 
-type Tab = "search" | "keyword" | "import" | "export" | "suggestions" | "synergies" | "combos" | "salt" | "simulate";
+type Tab = "search" | "keyword" | "import" | "export" | "suggestions" | "synergies" | "combos" | "salt" | "simulate" | "upgrades" | "lands";
 
-export function DeckBuilder({ deckId, initialDeck, initialValidation, initialAnalysis, initialPowerLevel, initialPriceTotal, initialAnnoyance }: Props) {
+export function DeckBuilder({ deckId, initialDeck, initialValidation, initialAnalysis, initialPowerLevel, initialPriceTotal, initialAnnoyance, newSetCount }: Props) {
   const router = useRouter();
   const [deck, setDeck] = useState(initialDeck);
   const [validation, setValidation] = useState(initialValidation);
@@ -182,7 +185,7 @@ export function DeckBuilder({ deckId, initialDeck, initialValidation, initialAna
       </div>
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[320px_1fr]">
-        <div className="order-2 flex flex-col gap-6 lg:order-1">
+        <div data-preview-anchor className="order-2 flex flex-col gap-6 lg:order-1">
           <section>
             <h2 className="mb-2 text-sm font-semibold">Commander</h2>
             <CommanderPanel
@@ -195,13 +198,14 @@ export function DeckBuilder({ deckId, initialDeck, initialValidation, initialAna
 
           <section>
             <div className="mb-2 flex flex-wrap gap-1 border-b border-black/10 dark:border-white/10">
-              {(["search", "keyword", "import", "export", "suggestions", "synergies", "combos", "salt", "simulate"] as Tab[]).map((t) => (
+              {(["search", "keyword", "import", "export", "suggestions", "synergies", "combos", "salt", "simulate", "upgrades", "lands"] as Tab[]).map((t) => (
                 <button
                   key={t}
                   onClick={() => setTab(t)}
                   className={`px-2 py-1.5 text-xs font-medium capitalize ${tab === t ? "border-b-2 border-black text-black dark:border-white dark:text-white" : "text-black/40 dark:text-white/40"}`}
                 >
                   {t}
+                  {t === "upgrades" && newSetCount > 0 && <span className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-[#2a78d6] align-middle" title={`${newSetCount} new set${newSetCount === 1 ? "" : "s"} to check`} />}
                 </button>
               ))}
             </div>
@@ -219,6 +223,20 @@ export function DeckBuilder({ deckId, initialDeck, initialValidation, initialAna
               <CombosPanel deckId={deckId} hasCommander={deck.commanders.length > 0} onAdd={(scryfallId) => addCard(scryfallId, "mainboard")} />
             )}
             {tab === "salt" && <SaltPanel deckId={deckId} report={annoyance} onAdd={(card, zone) => addCard(card.id, zone)} />}
+            {tab === "upgrades" && (
+              <UpgradesPanel
+                deckId={deckId}
+                hasCommander={deck.commanders.length > 0}
+                onAdd={(card, zone) => addCard(card.id, zone)}
+                onSwap={async (incoming, outgoing) => {
+                  await addCard(incoming.id, "mainboard");
+                  const outgoingEntry = deck.mainboard.find((e) => e.card.id === outgoing.id);
+                  if (outgoingEntry && outgoingEntry.quantity > 1) await setQuantity(outgoing.id, "mainboard", outgoingEntry.quantity - 1);
+                  else await removeCard(outgoing.id, "mainboard");
+                }}
+              />
+            )}
+            {tab === "lands" && <LandsPanel deckId={deckId} hasCommander={deck.commanders.length > 0} onChanged={refresh} />}
             {tab === "simulate" && (
               <SimulatePanel deckId={deckId} hasCommander={deck.commanders.length > 0} onAdd={(card, zone) => addCard(card.id, zone)} />
             )}

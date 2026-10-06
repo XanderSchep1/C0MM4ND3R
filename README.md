@@ -16,8 +16,9 @@ EDHREC's actual Salt Score, which isn't available via any public API.
 - Next.js 16 (App Router) + TypeScript + Tailwind v4, manual light/dark theme toggle (class-based, persisted to
   `localStorage`, no flash-of-wrong-theme)
 - Postgres + Prisma 7 (`@prisma/adapter-pg`)
-- Auth.js (NextAuth v5) — Google OAuth in production, plus a dev-only "sign in as any email" credentials provider
-  (only registered when `NODE_ENV !== "production"`)
+- Auth.js (NextAuth v5) — email + password accounts created in the app itself (passwords stored as salted scrypt
+  hashes, JWT sessions), plus a dev-only "sign in as any email" provider for accounts that predate passwords (only
+  registered when `NODE_ENV !== "production"`)
 - Scryfall REST API, proxied through server routes with in-process rate limiting (their documented limits: 2 req/s
   for `/cards/search`, `/cards/named`, `/cards/collection`; 10 req/s everything else) and a Postgres-backed cache
   (`CardCache`) so repeat views don't re-hit Scryfall
@@ -38,8 +39,6 @@ EDHREC's actual Salt Score, which isn't available via any public API.
 3. **Env vars.** Copy `.env.example` to `.env` and fill in:
    - `DATABASE_URL` — from step 2
    - `AUTH_SECRET` — generate with `openssl rand -base64 33`
-   - `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` — only required in production. For local dev you can leave these blank
-     and use the dev-login form on `/signin` instead (visible only outside production).
 
 4. **Run migrations**
 
@@ -53,24 +52,27 @@ EDHREC's actual Salt Score, which isn't available via any public API.
    npm run dev
    ```
 
-   Visit `http://localhost:3000`, click **Sign in**, and use the "Dev login" box (any email) to get in without
-   setting up Google OAuth.
+   Visit `http://localhost:3000`, click **Sign in**, then **Create account** with an email and password.
 
-## Setting up Google OAuth (for production)
+## Dev database vs. production
 
-1. Go to the [Google Cloud Console credentials page](https://console.cloud.google.com/apis/credentials), create an
-   OAuth 2.0 Client ID (Application type: Web application).
-2. Add authorized redirect URIs:
-   - `http://localhost:3000/api/auth/callback/google` (if you want to test Google sign-in locally too)
-   - `https://<your-production-domain>/api/auth/callback/google`
-3. Put the client ID/secret into `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET`.
+`next dev` and the Prisma CLI use a Neon **dev branch** (a copy-on-write copy of production) whose URL lives in
+the git-ignored `.env.development.local`. `.env` still holds the production URL, which builds and Vercel use. To
+apply migrations to production, pass its URL explicitly (an explicit variable always wins):
+
+```bash
+DATABASE_URL="<production url>" npx prisma migrate deploy
+```
+
+Refresh the dev branch from production any time with
+`neon branch reset dev --parent --project-id <id> --config-dir ~/.neonctl`.
 
 ## Deploying to Vercel
 
 1. Push this repo to GitHub and import it in Vercel, **or** run `vercel` from this directory.
 2. Add a Postgres integration (Vercel Postgres, or connect an external Neon/Supabase database) — this sets
    `DATABASE_URL` automatically, or set it yourself under Project Settings → Environment Variables.
-3. Add `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` as environment variables.
+3. Add `AUTH_SECRET` as an environment variable.
 4. Run `npx prisma migrate deploy` against the production database (e.g. `vercel env pull .env.production.local`
    then `DATABASE_URL=... npx prisma migrate deploy`), or wire it into your deploy pipeline.
 5. Deploy. The dev-only credentials login is automatically excluded since `NODE_ENV === "production"` on Vercel.

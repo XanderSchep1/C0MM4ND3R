@@ -92,6 +92,16 @@ export function generateOpponents(bracket: number, count = 3): DeckProfile[] {
 }
 
 const ROUNDS = 10;
+const FORM_SPREAD = 2.9;
+const TYPICAL_DEVELOPMENT = 2.3;
+const COMBO_START_ROUND = 3;
+const COMBO_CHANCE_CAP = 0.25;
+const COMBO_DIVISOR = 200;
+const COMBO_REMOVAL_DIVISOR = 90;
+const REMOVAL_DIVISOR = 40;
+const REMOVAL_DAMAGE = 0.75;
+const WIPE_DIVISOR = 28;
+const WIPE_DAMAGE = 1;
 
 function gaussianLike(): number {
   // Average of 3 uniforms approximates a bell curve without needing a real
@@ -109,40 +119,45 @@ function manaConsistency(landCount: number): number {
   return 0.88;
 }
 
-// Plays one simplified "game": each round, every profile develops board
-// presence (faster with more ramp, a lower curve, and a healthier mana base),
-// gains a trickle of value from card draw, occasionally snipes the current
-// leader (removal) or resets the field (wipes), and has a combo/finisher
-// chance that grows each round with game-changer and tutor density —
-// unless another player's counterspell density breaks it up. Returns the
-// winning profile's index.
+// Plays one simplified "game": each player gets a per-game "form" roll (mana
+// screw, flood, mulligans — real Commander has huge game-to-game variance, so
+// deck shape tilts the odds rather than deciding them), then each round every
+// profile develops board presence (faster with more ramp, a lower curve, and a
+// healthier mana base), gains a trickle of value from card draw, and from turn
+// three onward has a combo/finisher chance that grows with game-changer and
+// tutor density and with how fast they've been developing. Counterspells and
+// removal in other players' decks can break a combo up, and removal/wipes
+// occasionally set back whoever is ahead. Returns the winning profile's index.
 function simulateGame(profiles: DeckProfile[]): number {
+  const form = profiles.map(() => Math.max(0.2, 1 + (gaussianLike() - 0.5) * FORM_SPREAD));
   const score = profiles.map(() => 0);
 
   for (let round = 1; round <= ROUNDS; round++) {
     for (let i = 0; i < profiles.length; i++) {
       const p = profiles[i];
-      const development = (1 + p.ramp / 12) * (3.5 / Math.max(1, p.avgCmc)) * manaConsistency(p.landCount) * (0.6 + gaussianLike());
+      const development = (1 + p.ramp / 12) * (3.5 / Math.max(1, p.avgCmc)) * manaConsistency(p.landCount) * form[i] * (0.6 + gaussianLike());
       score[i] += development + (p.draw / 12) * Math.random();
 
-      const comboChance = Math.min(0.35, ((p.gameChangers * 2 + p.tutors) / 100) * round);
-      if (Math.random() < comboChance) {
-        const interceptors = profiles.filter((_, j) => j !== i);
-        const countered = interceptors.some((o) => Math.random() < o.counterspells / 15);
-        if (!countered) return i;
+      if (round >= COMBO_START_ROUND) {
+        const tempo = Math.min(1.5, development / TYPICAL_DEVELOPMENT);
+        const comboChance = Math.min(COMBO_CHANCE_CAP, ((p.gameChangers * 2 + p.tutors) / COMBO_DIVISOR) * tempo);
+        if (Math.random() < comboChance) {
+          const disrupted = profiles.some((o, j) => j !== i && (Math.random() < o.counterspells / 15 || Math.random() < o.removal / COMBO_REMOVAL_DIVISOR));
+          if (!disrupted) return i;
+        }
       }
     }
 
     // Interaction pass: each player may snipe the current leader or wipe the board.
     for (let i = 0; i < profiles.length; i++) {
       const p = profiles[i];
-      if (Math.random() < p.removal / 20) {
-        let leader = 0;
-        for (let j = 1; j < profiles.length; j++) if (j !== i && score[j] > score[leader]) leader = j;
-        if (leader !== i) score[leader] = Math.max(0, score[leader] - 1);
+      if (Math.random() < p.removal / REMOVAL_DIVISOR) {
+        let leader = -1;
+        for (let j = 0; j < profiles.length; j++) if (j !== i && (leader === -1 || score[j] > score[leader])) leader = j;
+        if (leader !== -1) score[leader] = Math.max(0, score[leader] - REMOVAL_DAMAGE);
       }
-      if (Math.random() < p.wipes / 20) {
-        for (let j = 0; j < profiles.length; j++) if (j !== i) score[j] = Math.max(0, score[j] - 1.5);
+      if (Math.random() < p.wipes / WIPE_DIVISOR) {
+        for (let j = 0; j < profiles.length; j++) if (j !== i) score[j] = Math.max(0, score[j] - WIPE_DAMAGE);
       }
     }
   }
@@ -161,31 +176,42 @@ export interface WeakSpot {
 
 export interface SimulationResult {
   bracket: number;
+  // The first SAMPLE_GAMES of the simulated games, shown as cards in the UI.
   games: number;
   wins: number;
   losses: number;
-  winRate: number;
   gameResults: boolean[];
+  // Win rate over ESTIMATE_GAMES simulated games — stable run to run, unlike
+  // the handful of sample games, which swing wildly by luck alone.
+  winRate: number;
+  estimateGames: number;
+  marginOfError: number;
+  // Estimated win rate if the listed weak spots were raised to bracket-typical
+  // levels; undefined when there are none.
+  winRateIfFixed?: number;
   userProfile: DeckProfile;
   opponents: DeckProfile[];
   weakSpots: WeakSpot[];
   projectionScale: number;
 }
 
-const GAMES = 10;
+const SAMPLE_GAMES = 10;
+const ESTIMATE_GAMES = 4000;
+
+function estimateWinRate(profile: DeckProfile, bracket: number, games: number, sample?: boolean[]): number {
+  let wins = 0;
+  for (let g = 0; g < games; g++) {
+    const won = simulateGame([profile, ...generateOpponents(bracket)]) === 0;
+    if (won) wins++;
+    if (sample && sample.length < SAMPLE_GAMES) sample.push(won);
+  }
+  return wins / games;
+}
 
 export function runSimulation(userProfile: DeckProfile, bracket: number, scale = 1): SimulationResult {
-  let wins = 0;
   const gameResults: boolean[] = [];
-  const opponentSets: DeckProfile[][] = [];
-  for (let g = 0; g < GAMES; g++) {
-    const opponents = generateOpponents(bracket);
-    opponentSets.push(opponents);
-    const winner = simulateGame([userProfile, ...opponents]);
-    const won = winner === 0;
-    gameResults.push(won);
-    if (won) wins++;
-  }
+  const winRate = estimateWinRate(userProfile, bracket, ESTIMATE_GAMES, gameResults);
+  const wins = gameResults.filter(Boolean).length;
 
   const baseline = bracketBaseline(bracket);
   const dims: { key: WeakSpot["key"]; label: string }[] = [
@@ -203,15 +229,25 @@ export function runSimulation(userProfile: DeckProfile, bracket: number, scale =
     .sort((a, b) => deficit(a) - deficit(b))
     .slice(0, 2);
 
+  let winRateIfFixed: number | undefined;
+  if (weakSpots.length > 0) {
+    const fixed: DeckProfile = { ...userProfile };
+    for (const spot of weakSpots) fixed[spot.key] = spot.benchmark;
+    winRateIfFixed = estimateWinRate(fixed, bracket, ESTIMATE_GAMES);
+  }
+
   return {
     bracket,
-    games: GAMES,
+    games: SAMPLE_GAMES,
     wins,
-    losses: GAMES - wins,
-    winRate: wins / GAMES,
+    losses: SAMPLE_GAMES - wins,
     gameResults,
+    winRate,
+    estimateGames: ESTIMATE_GAMES,
+    marginOfError: 1.96 * Math.sqrt((winRate * (1 - winRate)) / ESTIMATE_GAMES),
+    winRateIfFixed,
     userProfile,
-    opponents: opponentSets[opponentSets.length - 1],
+    opponents: [{ ...baseline, label: `Bracket ${bracket} typical` }],
     weakSpots,
     projectionScale: scale,
   };

@@ -1,7 +1,7 @@
 "use client";
 
-import { cardManaCost, primaryTypeCategory, sortByCategoryThenName } from "@/lib/card-helpers";
-import { CardHoverName } from "./card-hover-name";
+import { cardImageUrl, cardManaCost, primaryTypeCategory, sortByCategoryThenName } from "@/lib/card-helpers";
+import { CardNameText, HoverPreview } from "./card-hover-name";
 import { ManaCost } from "./mana-cost";
 import type { DeckCardEntry, DeckZone } from "./types";
 
@@ -37,9 +37,16 @@ export function Decklist({ entries, onQuantityChange, onRemove, onMove, moveTarg
             {cards.map((card) => {
               const entry = byId.get(card.id)!;
               return (
-                <li key={card.id} className="flex flex-wrap items-center gap-x-2 gap-y-1 py-1.5 text-sm">
+                <HoverPreview
+                  as="li"
+                  placement="beside"
+                  key={card.id}
+                  imageUri={cardImageUrl(card, "normal")}
+                  alt={card.name}
+                  className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded py-1.5 text-sm hover:bg-black/[0.03] dark:hover:bg-white/[0.05]"
+                >
                   <span className="w-6 shrink-0 text-right tabular-nums text-black/50 dark:text-white/50">{entry.quantity}×</span>
-                  <CardHoverName card={card} className="min-w-0 flex-1 truncate" />
+                  <CardNameText name={card.name} className="min-w-0 flex-1 truncate" />
                   <span className="shrink-0">
                     <ManaCost cost={cardManaCost(card)} />
                   </span>
@@ -74,7 +81,7 @@ export function Decklist({ entries, onQuantityChange, onRemove, onMove, moveTarg
                       Remove
                     </button>
                   </div>
-                </li>
+                </HoverPreview>
               );
             })}
           </ul>

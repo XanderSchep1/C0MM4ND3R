@@ -1,4 +1,4 @@
-import type { ScryfallCard, ScryfallError, ScryfallList } from "./scryfall-types";
+import type { ScryfallCard, ScryfallError, ScryfallList, ScryfallSet } from "./scryfall-types";
 
 const API_BASE = "https://api.scryfall.com";
 const APP_USER_AGENT = "mtg-deckbuilder/1.0 (personal commander deckbuilding app)";
@@ -83,6 +83,11 @@ export async function searchCards(query: string, opts: SearchOptions = {}): Prom
     }
     throw err;
   }
+}
+
+export async function listSets(): Promise<ScryfallSet[]> {
+  const res = await request<ScryfallList<ScryfallSet>>("default", "/sets");
+  return res.data;
 }
 
 export async function getCardByNameFuzzy(name: string): Promise<ScryfallCard | null> {
