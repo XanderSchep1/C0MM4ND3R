@@ -16,9 +16,11 @@ async function currentUserId(): Promise<string | null> {
   return session?.user?.id ?? null;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const userId = await currentUserId();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  if (new URL(request.url).searchParams.get("view") === "full") return NextResponse.json(await fullCollection(userId));
 
   const rows = await prisma.ownedCard.findMany({ where: { userId }, select: { nameKey: true, quantity: true } });
   return NextResponse.json({
@@ -26,6 +28,35 @@ export async function GET() {
     unique: rows.length,
     total: rows.reduce((sum, r) => sum + r.quantity, 0),
   });
+}
+
+// Every owned card with a USD price when we already have the card cached.
+// Prices come from the local card cache only (an exact-name match, no
+// Scryfall calls), so a card we've never looked up simply shows no price.
+async function fullCollection(userId: string) {
+  const rows = await prisma.ownedCard.findMany({ where: { userId }, orderBy: { nameKey: "asc" }, select: { name: true, nameKey: true, quantity: true } });
+
+  const prices = new Map<string, number>();
+  const names = [...new Set(rows.map((r) => r.name))];
+  for (let i = 0; i < names.length; i += 1000) {
+    const chunk = names.slice(i, i + 1000);
+    const found = await prisma.$queryRaw<{ name: string; usd: string | null }[]>`
+      SELECT DISTINCT ON ("name") "name", "data"->'prices'->>'usd' AS usd
+      FROM "CardCache"
+      WHERE "name" = ANY(${chunk})
+      ORDER BY "name", "updatedAt" DESC`;
+    for (const f of found) if (f.usd) prices.set(f.name, parseFloat(f.usd));
+  }
+
+  const cards = rows.map((r) => ({ name: r.name, nameKey: r.nameKey, quantity: r.quantity, usd: prices.get(r.name) ?? null }));
+  const value = cards.reduce((sum, c) => sum + (c.usd ?? 0) * c.quantity, 0);
+  return {
+    cards,
+    unique: cards.length,
+    total: cards.reduce((sum, c) => sum + c.quantity, 0),
+    pricedCount: cards.filter((c) => c.usd !== null).length,
+    value: Math.round(value * 100) / 100,
+  };
 }
 
 export async function POST(request: Request) {
@@ -71,9 +102,30 @@ export async function POST(request: Request) {
   return NextResponse.json({ imported: entries.length, unique: total._count, total: total._sum.quantity ?? 0 });
 }
 
-export async function DELETE() {
+export async function PATCH(request: Request) {
   const userId = await currentUserId();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const { count } = await prisma.ownedCard.deleteMany({ where: { userId } });
+
+  const body = await request.json().catch(() => null);
+  const key = typeof body?.nameKey === "string" ? body.nameKey : "";
+  const quantity = Number.isFinite(body?.quantity) ? Math.floor(body.quantity) : NaN;
+  if (!key || Number.isNaN(quantity)) return NextResponse.json({ error: "nameKey and quantity are required." }, { status: 400 });
+
+  if (quantity <= 0) {
+    await prisma.ownedCard.deleteMany({ where: { userId, nameKey: key } });
+  } else {
+    const updated = await prisma.ownedCard.updateMany({ where: { userId, nameKey: key }, data: { quantity: Math.min(quantity, 999) } });
+    if (updated.count === 0) return NextResponse.json({ error: "Not in your collection." }, { status: 404 });
+  }
+  return NextResponse.json({ ok: true });
+}
+
+// With ?nameKey=... removes that one card; with no parameter, clears everything.
+export async function DELETE(request: Request) {
+  const userId = await currentUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const key = new URL(request.url).searchParams.get("nameKey");
+  const { count } = await prisma.ownedCard.deleteMany({ where: key ? { userId, nameKey: key } : { userId } });
   return NextResponse.json({ removed: count });
 }

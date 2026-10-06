@@ -17,7 +17,7 @@ import { SimulatePanel } from "./simulate-panel";
 import { UpgradesPanel } from "./upgrades-panel";
 import { LandsPanel } from "./lands-panel";
 import { PlaytestPanel } from "./playtest-panel";
-import { CollectionPanel, CollectionProvider, ToBuySummary } from "./collection";
+import { CollectionProvider, ToBuySummary } from "./collection";
 import { BudgetControl, BudgetProvider } from "./budget";
 import { mostExpensive } from "@/lib/card-helpers";
 import { ShareControl } from "./share-control";
@@ -35,7 +35,7 @@ interface Props {
   newSetCount: number;
 }
 
-type Tab = "search" | "keyword" | "import" | "export" | "suggestions" | "synergies" | "combos" | "salt" | "simulate" | "upgrades" | "lands" | "playtest" | "collection";
+type Tab = "search" | "keyword" | "import" | "export" | "suggestions" | "synergies" | "combos" | "salt" | "simulate" | "upgrades" | "lands" | "playtest";
 
 export function DeckBuilder({ deckId, initialDeck, initialValidation, initialAnalysis, initialPowerLevel, initialPriceTotal, initialAnnoyance, newSetCount }: Props) {
   const router = useRouter();
@@ -207,7 +207,7 @@ export function DeckBuilder({ deckId, initialDeck, initialValidation, initialAna
 
           <section>
             <div className="mb-2 flex flex-wrap gap-1 border-b border-black/10 dark:border-white/10">
-              {(["search", "keyword", "import", "export", "suggestions", "synergies", "combos", "salt", "simulate", "upgrades", "lands", "playtest", "collection"] as Tab[]).map((t) => (
+              {(["search", "keyword", "import", "export", "suggestions", "synergies", "combos", "salt", "simulate", "upgrades", "lands", "playtest"] as Tab[]).map((t) => (
                 <button
                   key={t}
                   onClick={() => setTab(t)}
@@ -247,7 +247,6 @@ export function DeckBuilder({ deckId, initialDeck, initialValidation, initialAna
               />
             )}
             {tab === "lands" && <LandsPanel deckId={deckId} hasCommander={deck.commanders.length > 0} onChanged={refresh} />}
-            {tab === "collection" && <CollectionPanel />}
             {tab === "playtest" && <PlaytestPanel commanders={deck.commanders} mainboard={deck.mainboard} />}
             {tab === "simulate" && (
               <SimulatePanel deckId={deckId} hasCommander={deck.commanders.length > 0} onAdd={(card, zone) => addCard(card.id, zone)} />

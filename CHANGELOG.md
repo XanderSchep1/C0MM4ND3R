@@ -23,7 +23,7 @@
 - **Budget filter.** Pick a max price per card (up to $1 … $100) above the tools and every suggestion, synergy, upgrade, land and search list hides anything pricier. Cards with no known price stay visible. Your choice is remembered. Decks also list their five most expensive cards.
 - **Playtest tab.** Shuffle your deck and draw an opening hand with a quick "keepable?" read, take mulligans (the first is free; later ones bottom a card, London-style) and draw turn by turn.
 - **More export formats.** Plain text, with set codes (Moxfield / Archidekt), MTG Arena, MTG Online, and CSV with prices.
-- **Collection.** Paste the cards you own (Moxfield, Archidekt, Deckbox and TCGplayer lists all work). Decks then mark cards you still **Need**, suggestions mark cards you already own, and the deck stats show what's still to buy, what it costs, and a copyable shopping list. Basic lands never count as missing.
+- **Collection page.** A new **Collection** page (link in the header) for the cards you own. Paste a list (Moxfield, Archidekt, Deckbox and TCGplayer exports all work) to add to or replace your collection, then search, sort, adjust copies, remove cards, copy or download the list, and see its estimated value. Decks mark cards you still **Need**, suggestions mark cards you already own, and the deck stats show what's still to buy, what it costs, and a copyable shopping list. Basic lands never count as missing.
 - **Automatic checks.** A GitHub workflow typechecks, lints and builds every push and pull request.
 
 ### Under the hood

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { isBasicLand, priceValue } from "@/lib/card-helpers";
 import type { ResolvedDeck, ScryfallCard } from "./types";
@@ -74,97 +75,18 @@ export function useCollection(): CollectionState {
   return useContext(CollectionContext);
 }
 
-export function CollectionPanel() {
-  const { loaded, unique, total, refresh } = useCollection();
-  const [text, setText] = useState("");
-  const [mode, setMode] = useState<"merge" | "replace">("merge");
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
-
-  async function importList() {
-    setBusy(true);
-    setMessage(null);
-    try {
-      const res = await fetch("/api/collection", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text, mode }) });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) {
-        setMessage({ ok: false, text: data?.error ?? "Couldn't import that list." });
-        return;
-      }
-      setMessage({ ok: true, text: `Imported ${data.imported} different cards. Your collection now has ${data.unique} different cards (${data.total} total).` });
-      setText("");
-      await refresh();
-    } catch {
-      setMessage({ ok: false, text: "Couldn't import that list." });
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function clearAll() {
-    if (!confirm("Remove every card from your collection? Your decks are not affected.")) return;
-    setBusy(true);
-    try {
-      await fetch("/api/collection", { method: "DELETE" });
-      setMessage({ ok: true, text: "Collection cleared." });
-      await refresh();
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <div className="flex flex-col gap-3">
-      <p className="text-xs text-black/60 dark:text-white/60">
-        Tell the app which cards you already own. Your decks then show what you still need to buy and what it costs. Paste any list with one card
-        per line (<span className="font-mono">1 Sol Ring</span>) — exports from Moxfield, Archidekt, Deckbox and TCGplayer all work. Basic lands never count as missing.
-      </p>
-      <div className="rounded-md border border-black/10 px-3 py-2 text-xs dark:border-white/10">
-        {!loaded ? "Loading your collection…" : unique === 0 ? "Your collection is empty." : `You own ${unique} different cards (${total} total).`}
-      </div>
-      <textarea
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        rows={8}
-        placeholder={"1 Sol Ring\n1 Arcane Signet\n4 Lightning Bolt"}
-        className="rounded-md border border-black/15 px-3 py-2 font-mono text-xs dark:border-white/15 dark:bg-black"
-      />
-      <div className="flex flex-wrap gap-4 text-xs">
-        <label className="flex items-center gap-1.5">
-          <input type="radio" checked={mode === "merge"} onChange={() => setMode("merge")} /> Add to my collection
-        </label>
-        <label className="flex items-center gap-1.5">
-          <input type="radio" checked={mode === "replace"} onChange={() => setMode("replace")} /> Replace my whole collection
-        </label>
-      </div>
-      {message && <p className={`text-xs ${message.ok ? "text-[#0b7a0b] dark:text-[#3fd13f]" : "text-[#d03b3b]"}`}>{message.text}</p>}
-      <div className="flex gap-2">
-        <button
-          onClick={importList}
-          disabled={busy || !text.trim()}
-          className="rounded-md bg-black px-3 py-1.5 text-xs font-medium text-white disabled:opacity-40 dark:bg-white dark:text-black"
-        >
-          {busy ? "Working…" : "Import list"}
-        </button>
-        {unique > 0 && (
-          <button
-            onClick={clearAll}
-            disabled={busy}
-            className="rounded-md border border-black/20 px-3 py-1.5 text-xs font-medium hover:bg-black/5 disabled:opacity-40 dark:border-white/25 dark:hover:bg-white/10"
-          >
-            Clear collection
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
 // "What do I still need to buy for this deck?" — only shown once a collection exists.
 export function ToBuySummary({ deck }: { deck: ResolvedDeck }) {
-  const { unique, owned } = useCollection();
+  const { loaded, unique, owned } = useCollection();
   const [copied, setCopied] = useState(false);
-  if (unique === 0) return null;
+  if (!loaded) return null;
+  if (unique === 0) {
+    return (
+      <Link href="/collection" className="block rounded-md border border-dashed border-black/20 px-3 py-2 text-xs text-black/60 hover:bg-black/5 dark:border-white/25 dark:text-white/60 dark:hover:bg-white/10">
+        Add the cards you own to see what this deck still needs →
+      </Link>
+    );
+  }
 
   const missing = [...deck.commanders, ...deck.mainboard]
     .map((e) => ({ card: e.card, need: Math.max(0, e.quantity - owned(e.card)) }))
@@ -208,6 +130,9 @@ export function ToBuySummary({ deck }: { deck: ResolvedDeck }) {
       <button onClick={copyList} className="self-start rounded-md border border-black/15 px-2 py-1 text-[11px] font-medium hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10">
         {copied ? "Copied!" : "Copy shopping list"}
       </button>
+      <Link href="/collection" className="self-start text-[11px] text-black/50 underline hover:text-black dark:text-white/50 dark:hover:text-white">
+        Manage my collection
+      </Link>
     </div>
   );
 }

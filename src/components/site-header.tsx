@@ -18,6 +18,9 @@ export async function SiteHeader() {
               <Link href="/decks" className="text-black/70 hover:text-black dark:text-white/70 dark:hover:text-white">
                 My decks
               </Link>
+              <Link href="/collection" className="text-black/70 hover:text-black dark:text-white/70 dark:hover:text-white">
+                Collection
+              </Link>
               <Link href="/account" className="hidden text-black/40 hover:text-black sm:inline dark:text-white/40 dark:hover:text-white">
                 {session.user.name ?? session.user.email}
               </Link>
