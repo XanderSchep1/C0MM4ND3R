@@ -1,0 +1,31 @@
+name: CI
+
+# Pushes to main deploy to production automatically (via Vercel), so this runs
+# the same checks on every push and on every pull request: work on a branch,
+# open a PR, and merge once it's green.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      # Placeholders so the build can import the database and auth modules.
+      # Nothing here ever connects to a real database.
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+      AUTH_SECRET: ci-placeholder-secret-not-used-anywhere
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Next generates some global types (e.g. LayoutProps) during a build, so a
+      # fresh checkout has to generate them before typechecking.
+      - run: npx next typegen
+      - run: npx tsc --noEmit
+      - run: npx eslint src
+      - run: npm run build

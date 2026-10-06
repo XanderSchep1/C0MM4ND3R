@@ -18,6 +18,14 @@
   - Basic lands count as free; cards without price data say "No price".
 - **Automatic deploys.** The code lives on GitHub and every push to `main` is deployed to production by Vercel.
 
+- **Password reset.** Every account now gets a one-time **recovery code** when it's created (shown once, stored only as a hash). On the new "Forgot your password?" page, enter your email, that code and a new password; the code is single-use and a fresh one is issued afterwards. If someone loses both, the site owner can reset them with `scripts/reset-password.mjs`.
+- **Account page.** Change your password, generate a new recovery code, or permanently delete your account and decks — each asks for your current password.
+- **Budget filter.** Pick a max price per card (up to $1 … $100) above the tools and every suggestion, synergy, upgrade, land and search list hides anything pricier. Cards with no known price stay visible. Your choice is remembered. Decks also list their five most expensive cards.
+- **Playtest tab.** Shuffle your deck and draw an opening hand with a quick "keepable?" read, take mulligans (the first is free; later ones bottom a card, London-style) and draw turn by turn.
+- **More export formats.** Plain text, with set codes (Moxfield / Archidekt), MTG Arena, MTG Online, and CSV with prices.
+- **Collection.** Paste the cards you own (Moxfield, Archidekt, Deckbox and TCGplayer lists all work). Decks then mark cards you still **Need**, suggestions mark cards you already own, and the deck stats show what's still to buy, what it costs, and a copyable shopping list. Basic lands never count as missing.
+- **Automatic checks.** A GitHub workflow typechecks, lints and builds every push and pull request.
+
 ### Under the hood
 - **Faster repeat searches.** Scryfall search results are now saved in our own database for a day, so suggestions, synergies, upgrades and lands answer in a fraction of a second the second time (about 4–6 s → under 0.6 s in testing) and no longer burn through Scryfall's rate limit as more people use the app.
 - **Sign-in and sign-up rate limiting.** Repeated attempts are slowed down: 8 sign-in tries per email and 30 per network every 15 minutes, and 6 sign-ups per network per hour. The limits are enforced on the sign-in endpoint itself, and the form shows a friendly "try again in a few minutes" message.

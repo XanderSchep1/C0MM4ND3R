@@ -67,6 +67,23 @@ DATABASE_URL="<production url>" npx prisma migrate deploy
 Refresh the dev branch from production any time with
 `neon branch reset dev --parent --project-id <id> --config-dir ~/.neonctl`.
 
+## Password reset and account recovery
+
+Sign-up shows each person a one-time **recovery code**; "Forgot your password?" on the sign-in page uses it to set a new
+password. If someone loses their password *and* their code, reset them by hand against the production database:
+
+```bash
+DATABASE_URL="<production url>" node scripts/reset-password.mjs friend@example.com
+```
+
+It prints a random temporary password to pass on; they can change it (and generate a new recovery code) on the Account page.
+
+## Working safely
+
+Every push to `main` deploys to production, and CI (`.github/workflows/ci.yml`) typechecks, lints and builds each push and pull
+request. Work on a branch, open a pull request, and merge when CI is green. In GitHub, Settings → Branches → add a rule for
+`main` that requires the **check** job to pass if you want that enforced.
+
 ## Deploying to Vercel
 
 1. Push this repo to GitHub and import it in Vercel, **or** run `vercel` from this directory.
