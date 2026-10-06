@@ -4,11 +4,14 @@ import { AuthError } from "next-auth";
 import { signIn } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/password";
+import { issueRecoveryCode } from "@/lib/recovery-code";
 import { clientIp, describeWait, hitRateLimit } from "@/lib/rate-limit";
 import { headers } from "next/headers";
 
 export interface FormState {
   error?: string;
+  // Set after a successful sign-up: shown once, then never retrievable again.
+  recoveryCode?: string;
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -59,19 +62,23 @@ export async function registerAction(_prev: FormState, formData: FormData): Prom
   if (existing?.passwordHash) return { error: "An account with this email already exists — sign in instead." };
 
   const passwordHash = await hashPassword(password);
+  let userId: string;
   if (existing) {
     // A passwordless account is a pre-password-era (dev-login) one; whoever
     // registers its email first claims it and keeps its decks.
     await prisma.user.update({ where: { id: existing.id }, data: { passwordHash, ...(name ? { name } : {}) } });
+    userId = existing.id;
   } else {
-    await prisma.user.create({ data: { email, name: name || email.split("@")[0], passwordHash } });
+    userId = (await prisma.user.create({ data: { email, name: name || email.split("@")[0], passwordHash } })).id;
   }
+  const recoveryCode = await issueRecoveryCode(userId);
 
+  // Sign in without redirecting so the form can show the recovery code first.
   try {
-    await signIn("credentials", { email, password, redirectTo: "/decks" });
+    await signIn("credentials", { email, password, redirect: false });
   } catch (err) {
     if (err instanceof AuthError) return { error: `Account created, but sign-in failed: ${authErrorMessage(err)}` };
     throw err;
   }
-  return {};
+  return { recoveryCode };
 }

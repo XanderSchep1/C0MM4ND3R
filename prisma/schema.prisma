@@ -21,10 +21,14 @@ model User {
   // scrypt hash ("salt:hash", both hex) for email+password accounts. Null for
   // legacy accounts created before password sign-up existed.
   passwordHash  String?
+  // scrypt hash of the one-time recovery code used to reset a forgotten
+  // password (no email needed). Null until a code has been generated.
+  recoveryCodeHash String?
 
   accounts Account[]
   sessions Session[]
   decks    Deck[]
+  ownedCards OwnedCard[]
 }
 
 model Account {
@@ -64,6 +68,21 @@ model VerificationToken {
 }
 
 // --- App models ---
+
+// Cards a user says they own, so decks can show what still has to be bought.
+// nameKey is the lowercased name used for matching; name keeps the original.
+model OwnedCard {
+  id       String @id @default(cuid())
+  userId   String
+  name     String
+  nameKey  String
+  quantity Int    @default(1)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, nameKey])
+  @@index([userId])
+}
 
 model Deck {
   id          String   @id @default(cuid())

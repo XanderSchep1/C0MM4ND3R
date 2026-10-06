@@ -1,15 +1,32 @@
 "use client";
 
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useActionState, useState } from "react";
+import { RecoveryCodeNotice } from "./recovery-code-notice";
 import { registerAction, signInAction, type FormState } from "@/app/signin/actions";
 
 const inputClass = "rounded-md border border-black/15 px-3 py-2 text-sm dark:border-white/15 dark:bg-black";
 const initial: FormState = {};
 
 export function AuthForm() {
+  const router = useRouter();
   const [mode, setMode] = useState<"signin" | "register">("signin");
   const [signInState, signInFormAction, signInPending] = useActionState(signInAction, initial);
   const [registerState, registerFormAction, registerPending] = useActionState(registerAction, initial);
+
+  if (registerState.recoveryCode) {
+    return (
+      <RecoveryCodeNotice
+        code={registerState.recoveryCode}
+        continueLabel="Continue to my decks"
+        onContinue={() => {
+          router.push("/decks");
+          router.refresh();
+        }}
+      />
+    );
+  }
 
   const registering = mode === "register";
   const state = registering ? registerState : signInState;
@@ -55,6 +72,11 @@ export function AuthForm() {
         >
           {pending ? "Please wait…" : registering ? "Create account" : "Sign in"}
         </button>
+        {!registering && (
+          <Link href="/reset-password" className="self-center text-xs text-black/50 underline hover:text-black dark:text-white/50 dark:hover:text-white">
+            Forgot your password?
+          </Link>
+        )}
       </form>
     </div>
   );
