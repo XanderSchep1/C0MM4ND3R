@@ -1,0 +1,41 @@
+# Changelog
+
+## 2026-10-06
+
+### New
+- **Lands tab.** A land balancer for your deck.
+  - Compares each color's share of your mana symbols against how many lands can produce that color (green = covered, amber = short).
+  - Choose which special lands you want — dual and fixing, fetch, tri-color, utility — and optionally type specific land names.
+  - Each recommendation is shown as a full card with its colors, price, and a one-line reason, with **Yes** and **No** buttons.
+  - **Yes** adds the land. If the deck is at 99 cards or already has 37 lands, it also swaps out a basic of whichever color you have the most spare sources of, so the deck stays in balance.
+- **Hover previews on every card.** Hover a row in the Mainboard, Maybeboard, or a shared deck to see the full card. The same works on the card tiles in Suggestions, Synergies, Simulate, Salt, Keyword and Search, and on Upgrades thumbnails. The card is docked in one steady spot beside the list and never covers a row's buttons. Mouse only; hidden on narrow or phone layouts.
+- **Prices everywhere.**
+  - Every hover preview shows a USD price under the card.
+  - Card tiles show a price line.
+  - Upgrades show a price chip and the net cost of each swap, e.g. "Replaces Season of Growth ($0.27 · net +$0.30)".
+  - The Lands review shows each land's price.
+  - Combo pieces are now priced.
+  - Basic lands count as free; cards without price data say "No price".
+- **Automatic deploys.** The code lives on GitHub and every push to `main` is deployed to production by Vercel.
+
+### Improved
+- **Add, Maybe and Remove buttons are always visible.** They are now full-width buttons under each card (previously they only appeared on hover), readable in light and dark mode.
+- **Bigger cards.** Card grids are three across, so cards and buttons are easier to read and click.
+- **Commander card.** Its Remove button is now a visible button under the card.
+- **More varied land suggestions.** Each land family (true duals, pain and filter lands, any-color lands) contributes its own best picks so one family can't crowd out the others.
+
+### Fixed
+- Hover previews that never appeared (they were clipped by the list layout and only triggered on the exact name text).
+- Duplicate land suggestions (e.g. Exotic Orchard appearing twice).
+- Real dual lands (Breeding Pool, Steam Vents, …) being outranked by three-color lands.
+- Poor lands ranked as best picks: lands with restricted or extra-cost mana, and lands whose colors only work from the opening hand (Gemstone Caverns), now rank lower.
+- Combo pieces had no prices.
+
+## 2026-10-01 – 2026-10-03
+
+- **Accounts.** Email and password sign-up replaced Google sign-in. Existing password-less accounts can be claimed by registering their email.
+- **Upgrades tab.** Checks recently released sets for better versions of cards you already run, gap-fillers, synergy cards, and nonbasic lands, with swap-in buttons and a badge when there are new sets to check.
+- **Simulation.** The win-rate estimate now comes from 4,000 simulated games instead of 10, so it is stable from run to run. Shows 10 sample games, a margin of error, and a projection of your win rate if you filled your deck's gaps. The game model was also rebalanced.
+- **Hosting.** Deployed to Vercel with a Neon Postgres database; a separate development database branch keeps local testing away from live data.
+- **Deploy hardening.** Local environment files are excluded from deploy uploads.
+- **Tooling.** Added Neon database tooling for development.
