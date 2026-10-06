@@ -77,6 +77,9 @@ Refresh the dev branch from production any time with
    then `DATABASE_URL=... npx prisma migrate deploy`), or wire it into your deploy pipeline.
 5. Deploy. The dev-only credentials login is automatically excluded since `NODE_ENV === "production"` on Vercel.
 
+Once the GitHub repo is connected to the Vercel project (Project Settings → Git), every push to `main` deploys to
+production automatically. `vercel deploy --prod` still works for a manual deploy.
+
 ## How the suggestion engine works
 
 `src/lib/deck-analysis.ts` classifies the cards already in your deck locally (regex over cached Oracle text — no
