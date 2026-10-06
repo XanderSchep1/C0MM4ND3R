@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { cardImageUrl } from "@/lib/card-helpers";
+import { cardImageUrl, formatPrice, priceValue } from "@/lib/card-helpers";
 import { CardHoverName, HoverPreview } from "./card-hover-name";
 import type { ScryfallCard, SetInfo, UpgradeSuggestion, DeckZone } from "./types";
 
@@ -14,6 +14,15 @@ interface Props {
   onSwap: (incoming: ScryfallCard, outgoing: ScryfallCard) => void | Promise<void>;
 }
 
+// "net +$1.20" / "net -$0.30": what the swap costs (or saves) when both cards have prices.
+function netCost(incoming: ScryfallCard, outgoing: ScryfallCard): string | null {
+  const a = priceValue(incoming);
+  const b = priceValue(outgoing);
+  if (a === null || b === null) return null;
+  const diff = Math.round((a - b) * 100) / 100;
+  return `net ${diff >= 0 ? "+" : "-"}$${Math.abs(diff).toFixed(2)}`;
+}
+
 function formatDate(iso: string): string {
   return new Date(iso + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
@@ -21,7 +30,7 @@ function formatDate(iso: string): string {
 function Thumb({ card }: { card: ScryfallCard }) {
   const img = cardImageUrl(card, "small");
   return (
-    <HoverPreview as="div" placement="beside" imageUri={cardImageUrl(card, "normal")} alt={card.name} className="shrink-0">
+    <HoverPreview as="div" placement="beside" imageUri={cardImageUrl(card, "normal")} alt={card.name} price={formatPrice(card)} className="shrink-0">
       {img ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={img} alt={card.name} className="h-[84px] w-[60px] rounded-[4px] object-cover" loading="lazy" />
@@ -188,11 +197,13 @@ export function UpgradesPanel({ deckId, hasCommander, onAdd, onSwap }: Props) {
                       <CardHoverName card={s.card} />
                       <span className="rounded bg-black/5 px-1.5 py-0.5 text-[10px] font-medium uppercase text-black/50 dark:bg-white/10 dark:text-white/50">{s.label}</span>
                       <span className="text-[10px] font-medium uppercase text-black/40 dark:text-white/40">{s.card.reprint ? "Reprint" : "New card"}</span>
+                      <span className="rounded bg-[#0ca30c]/15 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-[#0b7a0b] dark:text-[#3fd13f]">{formatPrice(s.card)}</span>
                     </div>
                     <div className="text-xs text-black/60 dark:text-white/60">{s.reason}</div>
                     {s.replaces && (
                       <div className="text-xs text-black/50 dark:text-white/50">
-                        Replaces <CardHoverName card={s.replaces} />
+                        Replaces <CardHoverName card={s.replaces} /> ({formatPrice(s.replaces)}
+                        {netCost(s.card, s.replaces) && <> · {netCost(s.card, s.replaces)}</>})
                       </div>
                     )}
                     <div className="mt-auto flex flex-wrap gap-1.5 pt-1">

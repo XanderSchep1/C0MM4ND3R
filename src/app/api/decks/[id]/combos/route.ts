@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getOwnedDeck, resolveDeck } from "@/lib/deck-data";
-import { colorIdentityUnion, isBasicLand } from "@/lib/card-helpers";
-import { findCombosForCardNames, findComboOpportunities } from "@/lib/combos";
+import { colorIdentityUnion, formatPrice, isBasicLand } from "@/lib/card-helpers";
+import { findCombosForCardNames, findComboOpportunities, type ComboCardRef, type ComboVariant } from "@/lib/combos";
 import { resolveCardsByNames } from "@/lib/cards";
 
 const MAX_RESULTS_PER_GROUP = 10;
@@ -42,10 +42,24 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const missingNames = [...new Set(topNear.flatMap((n) => n.missing.map((m) => m.name)))];
   const { resolved: resolvedMissing } = await resolveCardsByNames(missingNames);
 
+  // Combo data comes from Commander Spellbook, which has no card prices — take
+  // them from the Scryfall data we already hold for the deck and missing pieces
+  // (both whole names and front-face names, since DFCs are listed either way).
+  const priceByName = new Map<string, string>();
+  const rememberPrice = (card: { name: string; type_line: string; prices?: Record<string, string | null> }) => {
+    const price = formatPrice(card);
+    priceByName.set(card.name.toLowerCase(), price);
+    priceByName.set(card.name.split(" // ")[0].toLowerCase(), price);
+  };
+  owned.forEach((e) => rememberPrice(e.card));
+  resolvedMissing.forEach((card) => rememberPrice(card));
+  const priced = (c: ComboCardRef): ComboCardRef => ({ ...c, price: priceByName.get(c.name.toLowerCase()) });
+  const pricedVariant = (v: ComboVariant): ComboVariant => ({ ...v, cards: v.cards.map(priced) });
+
   const near_ = topNear.map((n) => ({
-    ...n,
-    missing: n.missing.map((m) => ({ ...m, scryfallId: resolvedMissing.get(m.name)?.id ?? null })),
+    variant: pricedVariant(n.variant),
+    missing: n.missing.map((m) => ({ ...priced(m), scryfallId: resolvedMissing.get(m.name)?.id ?? null })),
   }));
 
-  return NextResponse.json({ complete: topComplete, near: near_ });
+  return NextResponse.json({ complete: topComplete.map(pricedVariant), near: near_ });
 }

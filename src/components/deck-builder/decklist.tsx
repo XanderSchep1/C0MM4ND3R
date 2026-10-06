@@ -1,6 +1,6 @@
 "use client";
 
-import { cardImageUrl, cardManaCost, primaryTypeCategory, sortByCategoryThenName } from "@/lib/card-helpers";
+import { cardImageUrl, cardManaCost, formatPrice, primaryTypeCategory, sortByCategoryThenName } from "@/lib/card-helpers";
 import { CardNameText, HoverPreview } from "./card-hover-name";
 import { ManaCost } from "./mana-cost";
 import type { DeckCardEntry, DeckZone } from "./types";
@@ -43,6 +43,7 @@ export function Decklist({ entries, onQuantityChange, onRemove, onMove, moveTarg
                   key={card.id}
                   imageUri={cardImageUrl(card, "normal")}
                   alt={card.name}
+                  price={formatPrice(card)}
                   className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded py-1.5 text-sm hover:bg-black/[0.03] dark:hover:bg-white/[0.05]"
                 >
                   <span className="w-6 shrink-0 text-right tabular-nums text-black/50 dark:text-white/50">{entry.quantity}×</span>

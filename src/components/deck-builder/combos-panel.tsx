@@ -7,6 +7,7 @@ interface ComboCardRef {
   oracleId: string;
   name: string;
   imageUri?: string;
+  price?: string;
 }
 interface ComboVariant {
   id: string;
@@ -93,7 +94,7 @@ export function CombosPanel({ deckId, hasCommander, onAdd }: Props) {
                   {v.cards.map((c, i) => (
                     <span key={c.oracleId}>
                       {i > 0 && " + "}
-                      <NameWithPreview name={c.name} imageUri={c.imageUri} />
+                      <NameWithPreview name={c.name} imageUri={c.imageUri} price={c.price} />
                     </span>
                   ))}
                 </div>
@@ -117,6 +118,7 @@ export function CombosPanel({ deckId, hasCommander, onAdd }: Props) {
                       <NameWithPreview
                         name={c.name}
                         imageUri={c.imageUri}
+                        price={c.price}
                         className={missing.some((m) => m.oracleId === c.oracleId) ? "font-semibold text-[#2a78d6] dark:text-[#3987e5]" : ""}
                       />
                     </span>

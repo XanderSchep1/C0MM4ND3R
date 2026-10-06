@@ -1,6 +1,6 @@
 "use client";
 
-import { cardImageUrl } from "@/lib/card-helpers";
+import { cardImageUrl, formatPrice } from "@/lib/card-helpers";
 import { HoverPreview } from "./card-hover-name";
 import type { ScryfallCard } from "./types";
 
@@ -22,6 +22,7 @@ export function CardTile({ card, actions }: { card: ScryfallCard; actions?: Reac
       placement="beside"
       imageUri={cardImageUrl(card, "normal")}
       alt={card.name}
+      price={formatPrice(card)}
       className="flex flex-col overflow-hidden rounded-lg border border-black/10 bg-black/[0.02] dark:border-white/10 dark:bg-white/[0.02]"
     >
       <div className="aspect-[5/7] w-full bg-black/5 dark:bg-white/5">
@@ -32,6 +33,7 @@ export function CardTile({ card, actions }: { card: ScryfallCard; actions?: Reac
           <div className="flex h-full items-center justify-center p-2 text-center text-[10px] text-black/40 dark:text-white/40">{card.name}</div>
         )}
       </div>
+      <div className="px-1.5 pt-1 text-center text-[11px] font-semibold tabular-nums text-black/60 dark:text-white/60">{formatPrice(card)}</div>
       {actions && <div className="flex flex-col gap-1 p-1">{actions}</div>}
     </HoverPreview>
   );

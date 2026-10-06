@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { cardImageUrl } from "@/lib/card-helpers";
+import { cardImageUrl, formatPrice } from "@/lib/card-helpers";
 import { ColorPips } from "./color-pips";
 import type { LandBalance, LandSuggestion } from "./types";
 
@@ -220,6 +220,7 @@ export function LandsPanel({ deckId, hasCommander, onChanged }: Props) {
           <div className="flex flex-wrap items-center justify-center gap-1.5 text-sm font-semibold">
             {current.card.name}
             <ColorPips identity={current.colors} />
+            <span className="rounded-full bg-black/85 px-2.5 py-0.5 text-xs font-semibold tabular-nums text-white dark:bg-white/90 dark:text-black">{formatPrice(current.card)}</span>
           </div>
           <div className="flex flex-wrap justify-center gap-1.5 text-[10px] font-medium uppercase">
             <span className="rounded bg-black/5 px-1.5 py-0.5 text-black/60 dark:bg-white/10 dark:text-white/60">{current.category}</span>

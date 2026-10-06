@@ -25,6 +25,8 @@ export interface ComboCardRef {
   oracleId: string;
   name: string;
   imageUri?: string;
+  // Formatted USD price, attached by the combos API route from Scryfall data.
+  price?: string;
 }
 
 export interface ComboVariant {

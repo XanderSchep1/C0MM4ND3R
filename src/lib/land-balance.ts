@@ -53,6 +53,9 @@ function manaDrawbackPenalty(card: ScryfallCard): number {
   let penalty = 0;
   if (/spend this mana only/i.test(text)) penalty += 3;
   if (/\{T\}, (?:exile|remove|sacrifice|discard)/i.test(text)) penalty += 3;
+  // Colored mana that only works if the land started in your opening hand
+  // (Gemstone Caverns), i.e. colorless in most games.
+  if (/opening hand|instead add/i.test(text)) penalty += 3;
   if (/deals? \d+ damage to you|pay \d+ life/i.test(text) && !/you may pay/i.test(text)) penalty += 1.5;
   return penalty;
 }
@@ -100,9 +103,13 @@ export function computeLandBalance(commanders: Entry[], mainboard: Entry[], colo
 export function scoreLand(card: ScryfallCard, balance: LandBalance): number {
   const deckColors = balance.colors.map((c) => c.color);
   const { colors: produced, weight } = landColors(card, deckColors);
-  const fix = produced.reduce((sum, c) => sum + (balance.colors.find((b) => b.color === c)?.deficit ?? 0), 0) * weight;
+  const drawback = manaDrawbackPenalty(card);
+  // Mana that is restricted or gated behind an extra cost fixes far less than
+  // its color count suggests, so discount the fixing value, not just the score.
+  const reliability = drawback >= 3 ? 0.35 : 1;
+  const fix = produced.reduce((sum, c) => sum + (balance.colors.find((b) => b.color === c)?.deficit ?? 0), 0) * weight * reliability;
   const popularity = card.edhrec_rank ? Math.max(0, 1 - Math.log10(card.edhrec_rank) / 4.2) : 0.2;
-  return fix + popularity * 5 - (entersTapped(card) ? 2 : 0) - manaDrawbackPenalty(card);
+  return fix + popularity * 5 - (entersTapped(card) ? 2 : 0) - drawback;
 }
 
 // The basic to swap out when a nonbasic comes in: the one whose color the deck

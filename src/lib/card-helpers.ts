@@ -5,6 +5,25 @@ export function cardImageUrl(card: ScryfallCard, size: "small" | "normal" | "art
   return card.card_faces?.[0]?.image_uris?.[size];
 }
 
+// USD price for display, from Scryfall's daily price data. Falls back to the
+// foil price (labelled) for cards that only exist as foils, and says so when
+// there's no price at all rather than showing $0. Basic lands have no price in
+// Scryfall's data and are effectively free, so they're labelled as such.
+export function formatPrice(card: Pick<ScryfallCard, "prices" | "name" | "type_line">): string {
+  const usd = card.prices?.usd;
+  if (usd) return `$${parseFloat(usd).toFixed(2)}`;
+  const foil = card.prices?.usd_foil ?? card.prices?.usd_etched;
+  if (foil) return `$${parseFloat(foil).toFixed(2)} foil`;
+  return isBasicLand(card) ? "Basic land" : "No price";
+}
+
+export function priceValue(card: Pick<ScryfallCard, "prices" | "name" | "type_line">): number | null {
+  const raw = card.prices?.usd ?? card.prices?.usd_foil ?? card.prices?.usd_etched;
+  const n = raw ? parseFloat(raw) : NaN;
+  if (!Number.isNaN(n)) return n;
+  return isBasicLand(card) ? 0 : null;
+}
+
 export function cardOracleText(card: ScryfallCard): string {
   if (card.oracle_text) return card.oracle_text;
   if (card.card_faces?.length) {
