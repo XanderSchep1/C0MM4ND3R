@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { prisma } from "./prisma";
 import { getCardsCollection, getCardByNameFuzzy, searchCards, type SearchOptions } from "./scryfall";
 import type { ScryfallCard } from "./scryfall-types";
@@ -100,11 +101,35 @@ export async function resolveCardsByNames(
   return { resolved, unresolved };
 }
 
+// Search results change slowly (new printings, popularity ranks), so a day-old
+// answer is fine — and it keeps repeat searches off Scryfall's rate limit.
+const SEARCH_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+
+function searchCacheKey(query: string, opts: SearchOptions): string {
+  return createHash("sha256")
+    .update(JSON.stringify([query, opts.order ?? "", opts.dir ?? "", opts.unique ?? "", opts.page ?? 1, opts.includeExtras ?? false]))
+    .digest("hex");
+}
+
 export async function searchAndCacheCards(
   query: string,
-  opts?: SearchOptions
+  opts: SearchOptions = {}
 ): Promise<{ cards: ScryfallCard[]; hasMore: boolean; totalCards?: number }> {
+  const key = searchCacheKey(query, opts);
+
+  const hit = await prisma.searchCache.findUnique({ where: { key } });
+  if (hit && Date.now() - hit.updatedAt.getTime() < SEARCH_CACHE_TTL_MS) {
+    const rows = await prisma.cardCache.findMany({ where: { scryfallId: { in: hit.cardIds } } });
+    // Only trust the hit if every card it points at is still cached.
+    if (rows.length === hit.cardIds.length) {
+      const byId = new Map(rows.map((r) => [r.scryfallId, rowToCard(r)]));
+      return { cards: hit.cardIds.map((id) => byId.get(id)!), hasMore: hit.hasMore, totalCards: hit.totalCards ?? undefined };
+    }
+  }
+
   const result = await searchCards(query, opts);
   await upsertCardsCache(result.data);
+  const entry = { cardIds: result.data.map((c) => c.id), hasMore: result.has_more, totalCards: result.total_cards ?? null };
+  await prisma.searchCache.upsert({ where: { key }, create: { key, ...entry }, update: entry });
   return { cards: result.data, hasMore: result.has_more, totalCards: result.total_cards };
 }

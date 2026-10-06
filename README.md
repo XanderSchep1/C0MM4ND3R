@@ -72,6 +72,8 @@ Refresh the dev branch from production any time with
 1. Push this repo to GitHub and import it in Vercel, **or** run `vercel` from this directory.
 2. Add a Postgres integration (Vercel Postgres, or connect an external Neon/Supabase database) — this sets
    `DATABASE_URL` automatically, or set it yourself under Project Settings → Environment Variables.
+   In production use Neon's **pooled** connection string (the host contains `-pooler`) for `DATABASE_URL`, and keep
+   the direct string for running migrations. `DATABASE_POOL_MAX` (default 5) caps connections per server instance.
 3. Add `AUTH_SECRET` as an environment variable.
 4. Run `npx prisma migrate deploy` against the production database (e.g. `vercel env pull .env.production.local`
    then `DATABASE_URL=... npx prisma migrate deploy`), or wire it into your deploy pipeline.

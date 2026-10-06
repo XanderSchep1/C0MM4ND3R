@@ -1,8 +1,20 @@
-import NextAuth, { type NextAuthConfig } from "next-auth";
+import NextAuth, { CredentialsSignin, type NextAuthConfig } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 
 import { prisma } from "@/lib/prisma";
 import { DUMMY_HASH, verifyPassword } from "@/lib/password";
+import { clientIp, hitRateLimit } from "@/lib/rate-limit";
+
+// Thrown from authorize() when someone has tried too often; the sign-in form
+// recognizes the code and shows a "try again later" message instead of
+// "incorrect password".
+export class RateLimitedError extends CredentialsSignin {
+  code = "rate_limited";
+}
+
+const SIGNIN_WINDOW_SECONDS = 15 * 60;
+const SIGNIN_LIMIT_PER_EMAIL = 8;
+const SIGNIN_LIMIT_PER_IP = 30;
 
 // Email + password accounts, created in-app (see src/app/signin/actions.ts).
 // Credentials providers force JWT sessions, so no database sessions or
@@ -15,10 +27,18 @@ const providers: NextAuthConfig["providers"] = [
       email: { label: "Email", type: "email" },
       password: { label: "Password", type: "password" },
     },
-    async authorize(raw) {
+    async authorize(raw, request) {
       const email = typeof raw?.email === "string" ? raw.email.trim().toLowerCase() : "";
       const password = typeof raw?.password === "string" ? raw.password : "";
       if (!email || !password) return null;
+
+      // Enforced here (not just in the form's server action) so calling the
+      // sign-in endpoint directly can't bypass it.
+      const [byEmail, byIp] = await Promise.all([
+        hitRateLimit(`signin:email:${email}`, SIGNIN_LIMIT_PER_EMAIL, SIGNIN_WINDOW_SECONDS),
+        hitRateLimit(`signin:ip:${clientIp(request.headers)}`, SIGNIN_LIMIT_PER_IP, SIGNIN_WINDOW_SECONDS),
+      ]);
+      if (byEmail.limited || byIp.limited) throw new RateLimitedError();
 
       const user = await prisma.user.findFirst({ where: { email: { equals: email, mode: "insensitive" } } });
       const ok = await verifyPassword(password, user?.passwordHash ?? DUMMY_HASH);

@@ -100,6 +100,27 @@ model DeckCard {
   @@index([deckId])
 }
 
+// Which cards a Scryfall search returned, keyed by a hash of the query and
+// options, so repeat searches (suggestions, synergies, upgrades, lands) are
+// answered from our own database instead of hitting Scryfall again.
+model SearchCache {
+  key        String   @id
+  cardIds    String[]
+  hasMore    Boolean  @default(false)
+  totalCards Int?
+  updatedAt  DateTime @updatedAt
+
+  @@index([updatedAt])
+}
+
+// Fixed-window counters for rate limiting sign-in and sign-up, shared across
+// all serverless instances because they live in the database.
+model RateLimit {
+  key         String   @id
+  count       Int
+  windowStart DateTime @default(now())
+}
+
 // Local cache of Scryfall card JSON, refreshed lazily. Keeps us within
 // Scryfall's rate limits and their "cache for at least 24h" guidance.
 model CardCache {

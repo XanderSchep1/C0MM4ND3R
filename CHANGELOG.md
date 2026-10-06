@@ -18,6 +18,11 @@
   - Basic lands count as free; cards without price data say "No price".
 - **Automatic deploys.** The code lives on GitHub and every push to `main` is deployed to production by Vercel.
 
+### Under the hood
+- **Faster repeat searches.** Scryfall search results are now saved in our own database for a day, so suggestions, synergies, upgrades and lands answer in a fraction of a second the second time (about 4–6 s → under 0.6 s in testing) and no longer burn through Scryfall's rate limit as more people use the app.
+- **Sign-in and sign-up rate limiting.** Repeated attempts are slowed down: 8 sign-in tries per email and 30 per network every 15 minutes, and 6 sign-ups per network per hour. The limits are enforced on the sign-in endpoint itself, and the form shows a friendly "try again in a few minutes" message.
+- **Smaller database connection pools** per server instance, so the app plays nicely with Neon's pooled connections as traffic grows.
+
 ### Improved
 - **Add, Maybe and Remove buttons are always visible.** They are now full-width buttons under each card (previously they only appeared on hover), readable in light and dark mode.
 - **Bigger cards.** Card grids are three across, so cards and buttons are easier to read and click.
