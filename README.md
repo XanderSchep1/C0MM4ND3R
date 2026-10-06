@@ -1,36 +1,97 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# C0MM4ND3R
 
-## Getting Started
+A Commander (EDH) deckbuilder: search live [Scryfall](https://scryfall.com) card data, import a decklist, track
+legality (100 cards, singleton, color identity, banned list), and get suggestions that fill the actual gaps in your
+deck (ramp, removal, draw, board wipes, tutors, recursion, counterspells) sorted by real Commander popularity via
+Scryfall's `order=edhrec`.
 
-First, run the development server:
+Also: a combo finder backed by [Commander Spellbook](https://commanderspellbook.com) (shows combos you can already
+pull off, and combos you're one or two cards from completing), a price total and rough power-level estimate from
+Scryfall's own Game Changers list, decklist export, one-click basic land fill, and a heuristic "annoyance" flag
+(mass land destruction, stax, extra turns, hard counters, Game Changers) with same-function swap suggestions — not
+EDHREC's actual Salt Score, which isn't available via any public API.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Stack
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- Next.js 16 (App Router) + TypeScript + Tailwind v4, manual light/dark theme toggle (class-based, persisted to
+  `localStorage`, no flash-of-wrong-theme)
+- Postgres + Prisma 7 (`@prisma/adapter-pg`)
+- Auth.js (NextAuth v5) — Google OAuth in production, plus a dev-only "sign in as any email" credentials provider
+  (only registered when `NODE_ENV !== "production"`)
+- Scryfall REST API, proxied through server routes with in-process rate limiting (their documented limits: 2 req/s
+  for `/cards/search`, `/cards/named`, `/cards/collection`; 10 req/s everything else) and a Postgres-backed cache
+  (`CardCache`) so repeat views don't re-hit Scryfall
+- Commander Spellbook's public API (`backend.commanderspellbook.com`) for combo data, queried in batches by the
+  deck's own card names (mirroring how their own "Find My Combos" feature works) rather than bulk-fetched
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Local setup
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. **Install deps**
 
-## Learn More
+   ```bash
+   npm install
+   ```
 
-To learn more about Next.js, take a look at the following resources:
+2. **Database.** Create a free Postgres instance — [Neon](https://neon.tech), [Vercel Postgres](https://vercel.com/storage/postgres),
+   or Supabase all work. Copy the connection string.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+3. **Env vars.** Copy `.env.example` to `.env` and fill in:
+   - `DATABASE_URL` — from step 2
+   - `AUTH_SECRET` — generate with `openssl rand -base64 33`
+   - `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` — only required in production. For local dev you can leave these blank
+     and use the dev-login form on `/signin` instead (visible only outside production).
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+4. **Run migrations**
 
-## Deploy on Vercel
+   ```bash
+   npx prisma migrate dev
+   ```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+5. **Start the dev server**
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+   ```bash
+   npm run dev
+   ```
+
+   Visit `http://localhost:3000`, click **Sign in**, and use the "Dev login" box (any email) to get in without
+   setting up Google OAuth.
+
+## Setting up Google OAuth (for production)
+
+1. Go to the [Google Cloud Console credentials page](https://console.cloud.google.com/apis/credentials), create an
+   OAuth 2.0 Client ID (Application type: Web application).
+2. Add authorized redirect URIs:
+   - `http://localhost:3000/api/auth/callback/google` (if you want to test Google sign-in locally too)
+   - `https://<your-production-domain>/api/auth/callback/google`
+3. Put the client ID/secret into `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET`.
+
+## Deploying to Vercel
+
+1. Push this repo to GitHub and import it in Vercel, **or** run `vercel` from this directory.
+2. Add a Postgres integration (Vercel Postgres, or connect an external Neon/Supabase database) — this sets
+   `DATABASE_URL` automatically, or set it yourself under Project Settings → Environment Variables.
+3. Add `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` as environment variables.
+4. Run `npx prisma migrate deploy` against the production database (e.g. `vercel env pull .env.production.local`
+   then `DATABASE_URL=... npx prisma migrate deploy`), or wire it into your deploy pipeline.
+5. Deploy. The dev-only credentials login is automatically excluded since `NODE_ENV === "production"` on Vercel.
+
+## How the suggestion engine works
+
+`src/lib/deck-analysis.ts` classifies the cards already in your deck locally (regex over cached Oracle text — no
+API calls) into themes (ramp, draw, removal, board wipes, tutors, recursion, counterspells) and compares counts
+against Commander rule-of-thumb targets. For any theme that's short, `src/lib/suggestions.ts` queries Scryfall's
+[Tagger `function:` oracle tags](https://scryfall.com/docs/syntax#tagger-tags) (e.g. `function:ramp`) scoped to your
+commander's color identity, sorted by `order:edhrec`, so suggestions are both legal and genuinely popular — no
+scraping, just Scryfall's own documented search API.
+
+## Project structure
+
+- `src/lib/scryfall.ts` — rate-limited Scryfall API client
+- `src/lib/cards.ts` — Postgres-backed cache layer on top of Scryfall
+- `src/lib/commander.ts` — Commander legality validation (singleton, 100 cards, color identity, banned list)
+- `src/lib/decklist-parser.ts` / `src/lib/decklist-export.ts` — import/export of pasted decklists
+- `src/lib/deck-analysis.ts` / `src/lib/suggestions.ts` — the suggestion engine, plus power-level and price total
+- `src/lib/combos.ts` — Commander Spellbook client + combo-opportunity matching
+- `src/lib/annoyance.ts` — the heuristic annoyance/"salt" classifier
+- `src/lib/land-fill.ts` — basic land auto-fill ratio calculation
+- `src/app/decks/[id]` — the deck builder page and its API routes

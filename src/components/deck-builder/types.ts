@@ -1,0 +1,11 @@
+export type { ResolvedDeck } from "@/lib/deck-data";
+export type { ValidationResult, ValidationIssue, DeckCardEntry } from "@/lib/commander";
+export type { DeckAnalysis, ThemeCount, PowerLevelEstimate, PriceTotal, ThemeDef } from "@/lib/deck-analysis";
+export { THEMES } from "@/lib/deck-analysis";
+export type { AnnoyanceReport, FlaggedCard } from "@/lib/annoyance";
+export type { ScryfallCard } from "@/lib/scryfall-types";
+export type { SuggestionGroup } from "@/lib/suggestions";
+export type { SynergyGroup, SynergySignal } from "@/lib/synergy";
+export type { DeckProfile, SimulationResult, WeakSpot } from "@/lib/game-sim";
+export { BRACKETS } from "@/lib/game-sim";
+export type DeckZone = "commander" | "mainboard" | "maybeboard";
