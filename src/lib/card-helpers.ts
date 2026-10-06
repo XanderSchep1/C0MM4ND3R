@@ -24,6 +24,14 @@ export function priceValue(card: Pick<ScryfallCard, "prices" | "name" | "type_li
   return isBasicLand(card) ? 0 : null;
 }
 
+export function mostExpensive(entries: { card: ScryfallCard }[], limit = 5): { name: string; price: number }[] {
+  return entries
+    .map((e) => ({ name: e.card.name, price: priceValue(e.card) ?? 0 }))
+    .filter((c) => c.price > 0)
+    .sort((a, b) => b.price - a.price)
+    .slice(0, limit);
+}
+
 export function cardOracleText(card: ScryfallCard): string {
   if (card.oracle_text) return card.oracle_text;
   if (card.card_faces?.length) {

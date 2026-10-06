@@ -16,6 +16,10 @@ import { SaltPanel } from "./salt-panel";
 import { SimulatePanel } from "./simulate-panel";
 import { UpgradesPanel } from "./upgrades-panel";
 import { LandsPanel } from "./lands-panel";
+import { PlaytestPanel } from "./playtest-panel";
+import { CollectionPanel, CollectionProvider, ToBuySummary } from "./collection";
+import { BudgetControl, BudgetProvider } from "./budget";
+import { mostExpensive } from "@/lib/card-helpers";
 import { ShareControl } from "./share-control";
 import { Decklist } from "./decklist";
 import type { ResolvedDeck, ValidationResult, DeckAnalysis, ScryfallCard, DeckZone, PowerLevelEstimate, PriceTotal, AnnoyanceReport } from "./types";
@@ -31,7 +35,7 @@ interface Props {
   newSetCount: number;
 }
 
-type Tab = "search" | "keyword" | "import" | "export" | "suggestions" | "synergies" | "combos" | "salt" | "simulate" | "upgrades" | "lands";
+type Tab = "search" | "keyword" | "import" | "export" | "suggestions" | "synergies" | "combos" | "salt" | "simulate" | "upgrades" | "lands" | "playtest" | "collection";
 
 export function DeckBuilder({ deckId, initialDeck, initialValidation, initialAnalysis, initialPowerLevel, initialPriceTotal, initialAnnoyance, newSetCount }: Props) {
   const router = useRouter();
@@ -149,7 +153,12 @@ export function DeckBuilder({ deckId, initialDeck, initialValidation, initialAna
     await refresh();
   }
 
+  const expensive = mostExpensive([...deck.commanders, ...deck.mainboard]);
+  const BUDGET_TABS: Tab[] = ["search", "keyword", "suggestions", "synergies", "salt", "simulate", "upgrades", "lands"];
+
   return (
+    <BudgetProvider>
+    <CollectionProvider>
     <div className="mx-auto max-w-6xl px-4 py-8">
       <div className="mb-2 flex flex-col items-start gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <input
@@ -198,7 +207,7 @@ export function DeckBuilder({ deckId, initialDeck, initialValidation, initialAna
 
           <section>
             <div className="mb-2 flex flex-wrap gap-1 border-b border-black/10 dark:border-white/10">
-              {(["search", "keyword", "import", "export", "suggestions", "synergies", "combos", "salt", "simulate", "upgrades", "lands"] as Tab[]).map((t) => (
+              {(["search", "keyword", "import", "export", "suggestions", "synergies", "combos", "salt", "simulate", "upgrades", "lands", "playtest", "collection"] as Tab[]).map((t) => (
                 <button
                   key={t}
                   onClick={() => setTab(t)}
@@ -209,6 +218,7 @@ export function DeckBuilder({ deckId, initialDeck, initialValidation, initialAna
                 </button>
               ))}
             </div>
+            {BUDGET_TABS.includes(tab) && <BudgetControl />}
             {tab === "search" && <CardSearch deckId={deckId} mode="card" onAdd={(card, zone) => addCard(card.id, zone)} />}
             {tab === "keyword" && <KeywordSearch deckId={deckId} onAdd={(card, zone) => addCard(card.id, zone)} />}
             {tab === "import" && <ImportPanel onImport={handleImport} />}
@@ -237,13 +247,16 @@ export function DeckBuilder({ deckId, initialDeck, initialValidation, initialAna
               />
             )}
             {tab === "lands" && <LandsPanel deckId={deckId} hasCommander={deck.commanders.length > 0} onChanged={refresh} />}
+            {tab === "collection" && <CollectionPanel />}
+            {tab === "playtest" && <PlaytestPanel commanders={deck.commanders} mainboard={deck.mainboard} />}
             {tab === "simulate" && (
               <SimulatePanel deckId={deckId} hasCommander={deck.commanders.length > 0} onAdd={(card, zone) => addCard(card.id, zone)} />
             )}
           </section>
 
           <section>
-            <StatsPanel colorIdentity={validation.colorIdentity} analysis={analysis} powerLevel={powerLevel} priceTotal={priceTotal} />
+            <StatsPanel colorIdentity={validation.colorIdentity} analysis={analysis} powerLevel={powerLevel} priceTotal={priceTotal} expensive={expensive} />
+            <ToBuySummary deck={deck} />
           </section>
         </div>
 
@@ -293,5 +306,7 @@ export function DeckBuilder({ deckId, initialDeck, initialValidation, initialAna
         </div>
       </div>
     </div>
+    </CollectionProvider>
+    </BudgetProvider>
   );
 }

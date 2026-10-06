@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { CardTile, tileButtonClass } from "./card-tile";
+import { useBudget } from "./budget";
 import type { ScryfallCard, SuggestionGroup } from "./types";
 
 interface Props {
@@ -11,6 +12,7 @@ interface Props {
 }
 
 export function SuggestionsPanel({ deckId, hasCommander, onAdd }: Props) {
+  const { inBudget } = useBudget();
   const [groups, setGroups] = useState<SuggestionGroup[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -63,7 +65,7 @@ export function SuggestionsPanel({ deckId, hasCommander, onAdd }: Props) {
             <div className="text-xs text-black/50 dark:text-white/50">{group.reason}</div>
           </div>
           <div className="grid grid-cols-3 gap-2">
-            {group.cards.map((card) => (
+            {group.cards.filter(inBudget).map((card) => (
               <CardTile
                 key={card.id}
                 card={card}

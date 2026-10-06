@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { CardTile, tileButtonClass } from "./card-tile";
+import { useBudget } from "./budget";
 import type { ScryfallCard, DeckZone } from "./types";
 
 interface Props {
@@ -13,6 +14,7 @@ interface Props {
 const LOOKS_LIKE_SYNTAX = /[a-z!@-]+[:=]|[<>]=?/i;
 
 export function CardSearch({ deckId, mode, onAdd }: Props) {
+  const { inBudget } = useBudget();
   const [query, setQuery] = useState("");
   const [cards, setCards] = useState<ScryfallCard[]>([]);
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -96,7 +98,7 @@ export function CardSearch({ deckId, mode, onAdd }: Props) {
       {error && !loading && <p className="text-xs text-black/40 dark:text-white/40">{error}</p>}
       {cards.length > 0 && (
         <div className="grid max-h-[520px] grid-cols-3 gap-2 overflow-y-auto">
-          {cards.map((card) => (
+          {cards.filter(inBudget).map((card) => (
             <CardTile
               key={card.id}
               card={card}

@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { resolveDeck } from "@/lib/deck-data";
 import { validateCommanderDeck } from "@/lib/commander";
 import { analyzeDeck, calculatePriceTotal, estimatePowerLevel } from "@/lib/deck-analysis";
-import { colorIdentityUnion, cardImageUrl } from "@/lib/card-helpers";
+import { colorIdentityUnion, cardImageUrl, mostExpensive } from "@/lib/card-helpers";
 import { StatsPanel } from "@/components/deck-builder/stats-panel";
 import { ReadOnlyDecklist } from "@/components/deck-builder/read-only-decklist";
 
@@ -63,7 +63,7 @@ export default async function SharedDeckPage({ params }: { params: Promise<{ id:
           </section>
 
           <section>
-            <StatsPanel colorIdentity={validation.colorIdentity} analysis={analysis} powerLevel={powerLevel} priceTotal={priceTotal} />
+            <StatsPanel colorIdentity={validation.colorIdentity} analysis={analysis} powerLevel={powerLevel} priceTotal={priceTotal} expensive={mostExpensive([...deck.commanders, ...deck.mainboard])} />
           </section>
         </div>
 

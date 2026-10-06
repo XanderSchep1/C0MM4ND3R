@@ -17,3 +17,56 @@ export function buildDecklistText(deck: { commanders: DeckCardEntry[]; mainboard
   if (deck.maybeboard.length > 0) sections.push(`Maybeboard\n${formatZone(deck.maybeboard)}`);
   return sections.join("\n\n") + "\n";
 }
+
+export type ExportFormat = "text" | "sets" | "arena" | "mtgo" | "csv";
+
+export const EXPORT_FORMATS: { value: ExportFormat; label: string; extension: string; hint: string }[] = [
+  { value: "text", label: "Plain text", extension: "txt", hint: "Works for most deckbuilders, and for importing back here." },
+  { value: "sets", label: "With set codes (Moxfield / Archidekt)", extension: "txt", hint: "Includes each card's set and collector number so the exact printing is picked." },
+  { value: "arena", label: "MTG Arena", extension: "txt", hint: "Paste into Arena's Import Deck." },
+  { value: "mtgo", label: "MTG Online", extension: "txt", hint: "Commander and maybeboard go in the sideboard (SB:)." },
+  { value: "csv", label: "CSV spreadsheet", extension: "csv", hint: "Zone, quantity, name, set, collector number and price." },
+];
+
+type DeckLike = { commanders: DeckCardEntry[]; mainboard: DeckCardEntry[]; maybeboard: DeckCardEntry[] };
+
+const byName = (entries: DeckCardEntry[]) => [...entries].sort((a, b) => a.card.name.localeCompare(b.card.name));
+const withSet = (e: DeckCardEntry) => `${e.quantity} ${e.card.name} (${e.card.set.toUpperCase()}) ${e.card.collector_number ?? ""}`.trim();
+
+function csvCell(value: string | number): string {
+  const s = String(value);
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+export function buildExport(deck: DeckLike, format: ExportFormat): string {
+  switch (format) {
+    case "sets":
+    case "arena": {
+      const lines = (entries: DeckCardEntry[]) => byName(entries).map(withSet).join("\n");
+      const sections: string[] = [];
+      if (deck.commanders.length > 0) sections.push(`Commander\n${lines(deck.commanders)}`);
+      sections.push(`Deck\n${lines(deck.mainboard) || "(empty)"}`);
+      if (format === "sets" && deck.maybeboard.length > 0) sections.push(`Maybeboard\n${lines(deck.maybeboard)}`);
+      return sections.join("\n\n") + "\n";
+    }
+    case "mtgo": {
+      const main = byName(deck.mainboard).map((e) => `${e.quantity} ${e.card.name}`);
+      const side = byName([...deck.commanders, ...deck.maybeboard]).map((e) => `SB: ${e.quantity} ${e.card.name}`);
+      return [...main, ...(side.length > 0 ? ["", ...side] : [])].join("\n") + "\n";
+    }
+    case "csv": {
+      const rows: string[] = ["Zone,Quantity,Name,Set,Collector Number,Price USD"];
+      const add = (zone: string, entries: DeckCardEntry[]) => {
+        for (const e of byName(entries)) {
+          rows.push([zone, e.quantity, e.card.name, e.card.set.toUpperCase(), e.card.collector_number ?? "", e.card.prices?.usd ?? ""].map(csvCell).join(","));
+        }
+      };
+      add("Commander", deck.commanders);
+      add("Mainboard", deck.mainboard);
+      add("Maybeboard", deck.maybeboard);
+      return rows.join("\n") + "\n";
+    }
+    default:
+      return buildDecklistText(deck);
+  }
+}

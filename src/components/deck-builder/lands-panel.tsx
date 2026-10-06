@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { cardImageUrl, formatPrice } from "@/lib/card-helpers";
 import { ColorPips } from "./color-pips";
+import { useBudget } from "./budget";
 import type { LandBalance, LandSuggestion } from "./types";
 
 interface CategoryInfo {
@@ -51,6 +52,7 @@ function BalanceTable({ balance }: { balance: LandBalance }) {
 }
 
 export function LandsPanel({ deckId, hasCommander, onChanged }: Props) {
+  const { inBudget } = useBudget();
   const [categories, setCategories] = useState<CategoryInfo[]>([]);
   const [balance, setBalance] = useState<LandBalance | null>(null);
   const [selected, setSelected] = useState<string[]>(DEFAULT_SELECTED);
@@ -112,11 +114,13 @@ export function LandsPanel({ deckId, hasCommander, onChanged }: Props) {
       }
       setBalance(data.balance);
       setNotes(data.notes);
-      setQueue(data.suggestions);
+      // Lands you asked for by name are always shown, whatever they cost.
+      const visible: LandSuggestion[] = data.suggestions.filter((s: LandSuggestion) => s.requested || inBudget(s.card));
+      setQueue(visible);
       setIndex(0);
       setAdded([]);
       setSkipped(0);
-      setPhase(data.suggestions.length > 0 ? "review" : "done");
+      setPhase(visible.length > 0 ? "review" : "done");
     } catch {
       setError("Couldn't find lands. Try again.");
     } finally {

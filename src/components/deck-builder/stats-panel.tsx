@@ -13,11 +13,13 @@ export function StatsPanel({
   analysis,
   powerLevel,
   priceTotal,
+  expensive,
 }: {
   colorIdentity: string[];
   analysis: DeckAnalysis;
   powerLevel: PowerLevelEstimate;
   priceTotal: PriceTotal;
+  expensive: { name: string; price: number }[];
 }) {
   return (
     <div className="flex flex-col gap-3">
@@ -40,6 +42,18 @@ export function StatsPanel({
           {priceTotal.unpricedCount > 0 && <span className="text-black/40 dark:text-white/40"> +{priceTotal.unpricedCount} unpriced</span>}
         </span>
       </div>
+
+      {expensive.length > 0 && (
+        <div className="flex flex-col gap-0.5 text-xs">
+          <span className="font-medium text-black/60 dark:text-white/60">Most expensive cards</span>
+          {expensive.map((c) => (
+            <div key={c.name} className="flex items-center justify-between gap-2">
+              <span className="truncate text-black/70 dark:text-white/70">{c.name}</span>
+              <span className="shrink-0 tabular-nums">{formatUsd(c.price)}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="rounded-md border border-black/10 p-2.5 text-xs dark:border-white/10">
         <div className="flex items-center justify-between">

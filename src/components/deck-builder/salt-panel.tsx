@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { CardTile, tileButtonClass } from "./card-tile";
+import { useBudget } from "./budget";
 import { CardHoverName } from "./card-hover-name";
 import { THEMES } from "./types";
 import type { AnnoyanceReport, ScryfallCard, DeckZone } from "./types";
@@ -19,6 +20,7 @@ interface Props {
 }
 
 export function SaltPanel({ deckId, report, onAdd }: Props) {
+  const { inBudget } = useBudget();
   const [openFor, setOpenFor] = useState<string | null>(null);
   const [alternatives, setAlternatives] = useState<Record<string, ScryfallCard[]>>({});
   const [loadingFor, setLoadingFor] = useState<string | null>(null);
@@ -86,7 +88,7 @@ export function SaltPanel({ deckId, report, onAdd }: Props) {
                 {loadingFor === card.id && <p className="text-black/40 dark:text-white/40">Searching…</p>}
                 {alternatives[card.id]?.length === 0 && <p className="text-black/40 dark:text-white/40">No alternatives found.</p>}
                 <div className="grid grid-cols-3 gap-2">
-                  {alternatives[card.id]?.map((alt) => (
+                  {alternatives[card.id]?.filter(inBudget).map((alt) => (
                     <CardTile
                       key={alt.id}
                       card={alt}

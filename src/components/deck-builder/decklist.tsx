@@ -3,6 +3,7 @@
 import { cardImageUrl, cardManaCost, formatPrice, primaryTypeCategory, sortByCategoryThenName } from "@/lib/card-helpers";
 import { CardNameText, HoverPreview } from "./card-hover-name";
 import { ManaCost } from "./mana-cost";
+import { useCollection } from "./collection";
 import type { DeckCardEntry, DeckZone } from "./types";
 
 interface Props {
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export function Decklist({ entries, onQuantityChange, onRemove, onMove, moveTargets }: Props) {
+  const { unique, owned } = useCollection();
   if (entries.length === 0) {
     return <p className="text-sm text-black/40 dark:text-white/40">No cards here yet.</p>;
   }
@@ -48,6 +50,11 @@ export function Decklist({ entries, onQuantityChange, onRemove, onMove, moveTarg
                 >
                   <span className="w-6 shrink-0 text-right tabular-nums text-black/50 dark:text-white/50">{entry.quantity}×</span>
                   <CardNameText name={card.name} className="min-w-0 flex-1 truncate" />
+                  {unique > 0 && owned(card) < entry.quantity && (
+                    <span className="shrink-0 rounded bg-[#fab219]/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-[#8a5a00] dark:text-[#fab219]" title="Not in your collection">
+                      Need
+                    </span>
+                  )}
                   <span className="shrink-0">
                     <ManaCost cost={cardManaCost(card)} />
                   </span>

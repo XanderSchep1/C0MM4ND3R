@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { cardImageUrl, formatPrice, priceValue } from "@/lib/card-helpers";
 import { CardHoverName, HoverPreview } from "./card-hover-name";
+import { useBudget } from "./budget";
 import type { ScryfallCard, SetInfo, UpgradeSuggestion, DeckZone } from "./types";
 
 type SetWithSeen = SetInfo & { seen: boolean };
@@ -42,6 +43,7 @@ function Thumb({ card }: { card: ScryfallCard }) {
 }
 
 export function UpgradesPanel({ deckId, hasCommander, onAdd, onSwap }: Props) {
+  const { inBudget } = useBudget();
   const [sets, setSets] = useState<SetWithSeen[] | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [suggestions, setSuggestions] = useState<UpgradeSuggestion[] | null>(null);
@@ -132,6 +134,7 @@ export function UpgradesPanel({ deckId, hasCommander, onAdd, onSwap }: Props) {
   const setByCode = new Map(checkedSets.map((s) => [s.code, s]));
   const bySet = new Map<string, UpgradeSuggestion[]>();
   for (const s of suggestions ?? []) {
+    if (!inBudget(s.card)) continue;
     const list = bySet.get(s.card.set) ?? [];
     list.push(s);
     bySet.set(s.card.set, list);

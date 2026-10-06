@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { buildKeywordClause } from "@/lib/search-query";
 import { CardTile, tileButtonClass } from "./card-tile";
+import { useBudget } from "./budget";
 import type { ScryfallCard, DeckZone } from "./types";
 
 interface Props {
@@ -15,6 +16,7 @@ interface Props {
 // or phrase, then presenting matches as a suggested-adds list rather than a
 // quick single-card lookup.
 export function KeywordSearch({ deckId, onAdd }: Props) {
+  const { inBudget } = useBudget();
   const [term, setTerm] = useState("");
   const [cards, setCards] = useState<ScryfallCard[]>([]);
   const [loading, setLoading] = useState(false);
@@ -72,7 +74,7 @@ export function KeywordSearch({ deckId, onAdd }: Props) {
             Suggested adds using &quot;{term.trim()}&quot;, sorted by Commander popularity:
           </p>
           <div className="grid max-h-[520px] grid-cols-3 gap-2 overflow-y-auto">
-            {cards.map((card) => (
+            {cards.filter(inBudget).map((card) => (
               <CardTile
                 key={card.id}
                 card={card}

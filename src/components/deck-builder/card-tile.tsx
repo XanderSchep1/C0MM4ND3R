@@ -2,6 +2,7 @@
 
 import { cardImageUrl, formatPrice } from "@/lib/card-helpers";
 import { HoverPreview } from "./card-hover-name";
+import { useCollection } from "./collection";
 import type { ScryfallCard } from "./types";
 
 // Full-width, always-visible buttons that read clearly on both themes. The
@@ -16,6 +17,8 @@ export function tileButtonClass(variant: "primary" | "secondary"): string {
 
 export function CardTile({ card, actions }: { card: ScryfallCard; actions?: React.ReactNode }) {
   const img = cardImageUrl(card, "small");
+  const { unique, owned } = useCollection();
+  const isOwned = unique > 0 && owned(card) > 0;
   return (
     <HoverPreview
       as="div"
@@ -33,7 +36,9 @@ export function CardTile({ card, actions }: { card: ScryfallCard; actions?: Reac
           <div className="flex h-full items-center justify-center p-2 text-center text-[10px] text-black/40 dark:text-white/40">{card.name}</div>
         )}
       </div>
-      <div className="px-1.5 pt-1 text-center text-[11px] font-semibold tabular-nums text-black/60 dark:text-white/60">{formatPrice(card)}</div>
+      <div className="px-1.5 pt-1 text-center text-[11px] font-semibold tabular-nums text-black/60 dark:text-white/60">{formatPrice(card)}
+        {isOwned && <span className="ml-1 text-[#0b7a0b] dark:text-[#3fd13f]">· owned</span>}
+      </div>
       {actions && <div className="flex flex-col gap-1 p-1">{actions}</div>}
     </HoverPreview>
   );

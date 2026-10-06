@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { CardTile, tileButtonClass } from "./card-tile";
+import { useBudget } from "./budget";
 import { BRACKETS } from "./types";
 import type { ScryfallCard, DeckZone, SimulationResult, SuggestionGroup } from "./types";
 
@@ -31,6 +32,7 @@ const CARD_STAGGER_MS = 90;
 const COUNT_UP_MS = 600;
 
 export function SimulatePanel({ deckId, hasCommander, onAdd }: Props) {
+  const { inBudget } = useBudget();
   const [bracket, setBracket] = useState(3);
   const [result, setResult] = useState<SimulationResult | null>(null);
   const [suggestions, setSuggestions] = useState<SuggestionGroup[]>([]);
@@ -231,7 +233,7 @@ export function SimulatePanel({ deckId, hasCommander, onAdd }: Props) {
             <div className="text-xs text-black/50 dark:text-white/50">{group.reason}</div>
           </div>
           <div className="grid grid-cols-3 gap-2">
-            {group.cards.map((card) => (
+            {group.cards.filter(inBudget).map((card) => (
               <CardTile
                 key={card.id}
                 card={card}
