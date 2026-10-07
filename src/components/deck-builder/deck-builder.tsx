@@ -20,6 +20,7 @@ import { PlaytestPanel } from "./playtest-panel";
 import { CollectionProvider, ToBuySummary } from "./collection";
 import { BudgetControl, BudgetProvider } from "./budget";
 import { mostExpensive } from "@/lib/card-helpers";
+import type { CardMark } from "@/lib/card-mark";
 import { ShareControl } from "./share-control";
 import { Decklist } from "./decklist";
 import type { ResolvedDeck, ValidationResult, DeckAnalysis, ScryfallCard, DeckZone, PowerLevelEstimate, PriceTotal, AnnoyanceReport } from "./types";
@@ -93,6 +94,18 @@ export function DeckBuilder({ deckId, initialDeck, initialValidation, initialAna
       body: JSON.stringify({ scryfallId, zone, newZone }),
     });
     await refresh();
+  }
+
+  // The highlight shows at once; the save happens in the background and the deck
+  // is reloaded only if it fails, so clicking through a list feels instant.
+  async function setMark(scryfallId: string, zone: "mainboard" | "maybeboard", mark: CardMark | null) {
+    setDeck((d) => ({ ...d, [zone]: d[zone].map((e) => (e.card.id === scryfallId ? { ...e, mark } : e)) }));
+    const res = await fetch(`/api/decks/${deckId}/cards`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ scryfallId, zone, mark }),
+    }).catch(() => null);
+    if (!res?.ok) await refresh();
   }
 
   async function handleImport(text: string, mode: "merge" | "replace") {
@@ -278,6 +291,7 @@ export function DeckBuilder({ deckId, initialDeck, initialValidation, initialAna
               onQuantityChange={(id, qty) => setQuantity(id, "mainboard", qty)}
               onRemove={(id) => removeCard(id, "mainboard")}
               onMove={(id, newZone) => moveCard(id, "mainboard", newZone)}
+              onMark={(id, mark) => setMark(id, "mainboard", mark)}
               moveTargets={[{ zone: "maybeboard", label: "→ Maybe" }]}
             />
           </section>
@@ -292,6 +306,7 @@ export function DeckBuilder({ deckId, initialDeck, initialValidation, initialAna
                 onQuantityChange={(id, qty) => setQuantity(id, "maybeboard", qty)}
                 onRemove={(id) => removeCard(id, "maybeboard")}
                 onMove={(id, newZone) => moveCard(id, "maybeboard", newZone)}
+                onMark={(id, mark) => setMark(id, "maybeboard", mark)}
                 moveTargets={[{ zone: "mainboard", label: "→ Deck" }]}
               />
             </section>

@@ -16,7 +16,7 @@ export default async function DeckPage({ params }: { params: Promise<{ id: strin
   const deck = await getOwnedDeck(id, session.user.id);
   if (!deck) notFound();
 
-  const resolved = await resolveDeck(deck);
+  const resolved = await resolveDeck(deck, { withMarks: true });
   const validation = validateCommanderDeck(resolved.commanders, resolved.mainboard);
   const colorIdentity = colorIdentityUnion(resolved.commanders.map((c) => c.card));
   const analysis = analyzeDeck(resolved.mainboard, colorIdentity);

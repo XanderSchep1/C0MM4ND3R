@@ -16,7 +16,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const deck = await getOwnedDeck(id, session.user.id);
   if (!deck) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const resolved = await resolveDeck(deck);
+  const resolved = await resolveDeck(deck, { withMarks: true });
   const validation = validateCommanderDeck(resolved.commanders, resolved.mainboard);
   const colorIdentity = colorIdentityUnion(resolved.commanders.map((c) => c.card));
   const analysis = analyzeDeck(resolved.mainboard, colorIdentity);

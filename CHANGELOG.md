@@ -2,6 +2,9 @@
 
 ## 2026-10-07
 
+### New
+- **Highlight the cards you own.** Every card line in the Mainboard and Maybeboard now has a **yellow** button (I own this) and a **red** button (I don't have it yet). Click one to tint the whole line; click it again to clear it. A small legend above each list counts how many cards are marked each way. The highlights are saved with the deck, move with a card between Mainboard and Maybeboard, survive re-importing a list, and are private to you — shared deck pages don't show them. (When a card is highlighted, the automatic "Need" badge from your Collection is hidden for that line.)
+
 ### Security
 - **Accounts can no longer be taken over by signing up again.** Registering with an email that already exists is always refused, even if that account has no password. (Before, an old password-less account could be claimed by whoever registered its email first.)
 - **Limits on the busy endpoints.** Simulate, suggestions, synergies, upgrades, lands, combos, deck import, card search and autocomplete, adding cards, and creating decks are now rate limited per account (a clear "try again in N seconds" message is shown). This keeps one person — or a script — from flooding the app, the database or Scryfall.

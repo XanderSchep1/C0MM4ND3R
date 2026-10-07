@@ -1,9 +1,12 @@
 import type { ScryfallCard } from "./scryfall-types";
+import type { CardMark } from "./card-mark";
 import { cardOracleText, colorIdentityUnion, isBackground, isBasicLand, isLegalCommander, isWithinColorIdentity } from "./card-helpers";
 
 export interface DeckCardEntry {
   card: ScryfallCard;
   quantity: number;
+  // Only set for the deck's owner; see resolveDeck.
+  mark?: CardMark | null;
 }
 
 export interface ValidationIssue {
