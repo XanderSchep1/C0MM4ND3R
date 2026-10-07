@@ -6,6 +6,7 @@ import type { CardMark } from "@/lib/card-mark";
 import { nextMark } from "@/lib/deck-edits";
 import { groupAndSort, type SortState } from "@/lib/deck-sort";
 import { CardNameText, HoverPreview } from "./card-hover-name";
+import { MarkedListPanel } from "./marked-list-panel";
 import { ManaCost } from "./mana-cost";
 import { useCollection } from "./collection";
 import type { DeckCardEntry, DeckZone } from "./types";
@@ -22,6 +23,8 @@ const SMALL_BUTTON = "h-6 w-6 rounded border border-black/15 text-xs hover:bg-bl
 interface Props {
   entries: DeckCardEntry[];
   sort: SortState;
+  // "Mainboard" / "Maybeboard": names the copied lists and downloaded files.
+  listName: string;
   onQuantityChange: (scryfallId: string, quantity: number) => void;
   onRemove: (scryfallId: string) => void;
   onMove: (scryfallId: string, newZone: DeckZone) => void;
@@ -135,8 +138,10 @@ function RowMenu({ name, items }: { name: string; items: { label: string; onSele
   );
 }
 
-export function Decklist({ entries, sort, onQuantityChange, onRemove, onMove, onMark, moveTargets }: Props) {
+export function Decklist({ entries, sort, listName, onQuantityChange, onRemove, onMove, onMark, moveTargets }: Props) {
   const { unique, owned } = useCollection();
+  // Which highlighted list (owned / missing) is open for copying, if any.
+  const [openList, setOpenList] = useState<CardMark | null>(null);
   if (entries.length === 0) {
     return <p className="text-sm text-black/40 dark:text-white/40">No cards here yet.</p>;
   }
@@ -145,15 +150,37 @@ export function Decklist({ entries, sort, onQuantityChange, onRemove, onMove, on
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-black/50 dark:text-white/50">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-black/50 dark:text-white/50">
         <span>Highlight button on each line: once = yellow, twice = red.</span>
-        {MARKS.map(({ mark, label, swatch }) => (
-          <span key={mark} className="inline-flex items-center gap-1.5">
-            <span className={`h-3 w-3 rounded-full ${swatch}`} aria-hidden="true" />
-            {label} · {entries.filter((e) => e.mark === mark).length}
-          </span>
-        ))}
+        {MARKS.map(({ mark, label, swatch }) => {
+          const count = entries.filter((e) => e.mark === mark).length;
+          return (
+            <button
+              key={mark}
+              type="button"
+              onClick={() => setOpenList((open) => (open === mark ? null : mark))}
+              aria-expanded={openList === mark}
+              title={`See and copy the ${label.toLowerCase()} cards`}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 font-medium hover:bg-black/5 dark:hover:bg-white/10 ${
+                openList === mark ? "border-black/40 bg-black/5 text-black dark:border-white/50 dark:bg-white/10 dark:text-white" : "border-black/15 dark:border-white/20"
+              }`}
+            >
+              <span className={`h-3 w-3 rounded-full ${swatch}`} aria-hidden="true" />
+              {label} · {count}
+              <span aria-hidden="true">{openList === mark ? "▴" : "▾"}</span>
+            </button>
+          );
+        })}
       </div>
+      {openList && (
+        <MarkedListPanel
+          title={`${MARKS.find((m) => m.mark === openList)!.label} cards in the ${listName}`}
+          swatch={MARKS.find((m) => m.mark === openList)!.swatch}
+          entries={entries.filter((e) => e.mark === openList)}
+          fileName={`${listName} ${openList}`}
+          onClose={() => setOpenList(null)}
+        />
+      )}
       {groups.map((group) => (
         <div key={group.key}>
           {group.label !== null && (

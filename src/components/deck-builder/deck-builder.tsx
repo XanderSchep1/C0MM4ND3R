@@ -264,6 +264,7 @@ export function DeckBuilder({ deckId, initialDeck, newSetCount }: Props) {
             <Decklist
               entries={deck.mainboard}
               sort={sort}
+              listName="Mainboard"
               onQuantityChange={(id, qty) => setQuantity(id, "mainboard", qty)}
               onRemove={(id) => removeCard(id, "mainboard")}
               onMove={(id, newZone) => moveCard(id, "mainboard", newZone)}
@@ -280,6 +281,7 @@ export function DeckBuilder({ deckId, initialDeck, newSetCount }: Props) {
               <Decklist
                 entries={deck.maybeboard}
                 sort={sort}
+                listName="Maybeboard"
                 onQuantityChange={(id, qty) => setQuantity(id, "maybeboard", qty)}
                 onRemove={(id) => removeCard(id, "maybeboard")}
                 onMove={(id, newZone) => moveCard(id, "maybeboard", newZone)}
