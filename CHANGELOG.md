@@ -2,6 +2,9 @@
 
 ## 2026-10-07
 
+### Fixed
+- **Search results squashed to just their art.** In some browsers (Safari) the card grid under Search and Keyword shrank every row to make the whole grid fit its height limit, so each card was cut off and its price and **Add** / **Maybe** buttons were hidden. Rows now keep the height of their cards, and the card no longer clips its own box.
+
 ### New
 - **Instant edits.** Adding, removing, changing a quantity, moving a card, highlighting and sharing now show on screen immediately, and the deck's stats (card count, price, power level, issues, colour balance) update at the same moment instead of after a reload. The change is saved in the background, in order; if the server rejects it, the screen puts things back and says why.
 - **Undo.** Removing a card (or dropping its quantity to zero), moving it between Mainboard and Maybeboard, and swapping in an upgrade each show a toast with **Undo**.

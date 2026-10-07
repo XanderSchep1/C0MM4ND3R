@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { buildKeywordClause } from "@/lib/search-query";
-import { CardTile, tileButtonClass } from "./card-tile";
+import { CardTile, TILE_GRID_CLASS, tileButtonClass } from "./card-tile";
 import { useBudget } from "./budget";
 import type { ScryfallCard, DeckZone } from "./types";
 
@@ -74,7 +74,7 @@ export function KeywordSearch({ deckId, onAdd }: Props) {
           <p className="text-xs text-black/50 dark:text-white/50">
             Suggested adds using &quot;{term.trim()}&quot;, sorted by Commander popularity:
           </p>
-          <div className="grid max-h-[520px] grid-cols-3 gap-2 overflow-y-auto">
+          <div className={TILE_GRID_CLASS}>
             {cards.filter(inBudget).map((card) => (
               <CardTile
                 key={card.id}

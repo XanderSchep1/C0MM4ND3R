@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CardTile, cardTileId, tileButtonClass } from "./card-tile";
+import { CardTile, TILE_GRID_CLASS, cardTileId, tileButtonClass } from "./card-tile";
 import { useBudget } from "./budget";
 import type { ScryfallCard, DeckZone } from "./types";
 
@@ -198,7 +198,7 @@ export function CardSearch({ deckId, mode, onAdd, focusSignal = 0 }: Props) {
       {loading && <p className="text-xs text-black/40 dark:text-white/40">Searching…</p>}
       {error && !loading && <p className="text-xs text-black/40 dark:text-white/40">{error}</p>}
       {cards.length > 0 && (
-        <div className="grid max-h-[520px] grid-cols-3 gap-2 overflow-y-auto">
+        <div className={TILE_GRID_CLASS}>
           {visible.map((card, i) => (
             <CardTile
               key={card.id}

@@ -15,6 +15,11 @@ export function tileButtonClass(variant: "primary" | "secondary"): string {
     : `${base} border border-black/25 text-black/80 hover:bg-black/5 dark:border-white/30 dark:text-white/85 dark:hover:bg-white/10`;
 }
 
+// A scrolling grid of tiles. `auto-rows-max` matters: with only a height cap, some
+// browsers (Safari) shrink the rows until the whole grid fits, which squashes every
+// tile down to its art and hides the price and the Add / Maybe buttons.
+export const TILE_GRID_CLASS = "grid max-h-[520px] auto-rows-max grid-cols-3 content-start gap-2 overflow-y-auto";
+
 // `active` outlines the tile that pressing Enter would add (keyboard quick-add in the search box).
 export function cardTileId(cardId: string): string {
   return `card-tile-${cardId}`;
@@ -32,11 +37,11 @@ export function CardTile({ card, actions, active = false }: { card: ScryfallCard
       alt={card.name}
       price={formatPrice(card)}
       id={cardTileId(card.id)}
-      className={`flex flex-col overflow-hidden rounded-lg border bg-black/[0.02] dark:bg-white/[0.02] ${
+      className={`flex flex-col rounded-lg border bg-black/[0.02] dark:bg-white/[0.02] ${
         active ? "border-[#2a78d6] ring-2 ring-[#2a78d6]" : "border-black/10 dark:border-white/10"
       }`}
     >
-      <div className="aspect-[5/7] w-full bg-black/5 dark:bg-white/5">
+      <div className="aspect-[5/7] w-full overflow-hidden rounded-t-[7px] bg-black/5 dark:bg-white/5">
         {img ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={img} alt={card.name} className="h-full w-full object-cover" loading="lazy" />
