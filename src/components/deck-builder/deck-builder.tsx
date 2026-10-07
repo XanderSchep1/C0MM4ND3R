@@ -23,6 +23,8 @@ import { BudgetControl, BudgetProvider } from "./budget";
 import { mostExpensive } from "@/lib/card-helpers";
 import { ShareControl } from "./share-control";
 import { Decklist } from "./decklist";
+import { SortControl } from "./sort-control";
+import { DEFAULT_SORT, parseSort, type SortState } from "@/lib/deck-sort";
 import { useDeckEditor } from "./use-deck-editor";
 import type { ResolvedDeck } from "./types";
 
@@ -35,6 +37,8 @@ interface Props {
 type Tab = "search" | "keyword" | "import" | "export" | "suggestions" | "synergies" | "combos" | "salt" | "simulate" | "upgrades" | "newcards" | "lands" | "playtest";
 
 // "Upgrades" looks for cheaper / pricier replacements for the cards you have; "New cards" checks recently released sets.
+const SORT_STORAGE_KEY = "deck-list-sort";
+
 const TAB_LABELS: Partial<Record<Tab, string>> = { newcards: "New cards" };
 
 export function DeckBuilder({ deckId, initialDeck, newSetCount }: Props) {
@@ -44,6 +48,28 @@ export function DeckBuilder({ deckId, initialDeck, newSetCount }: Props) {
   const { validation, analysis, powerLevel, priceTotal, annoyance } = stats;
   const [tab, setTab] = useState<Tab>("search");
   const [searchFocus, setSearchFocus] = useState(0);
+  const [sort, setSortState] = useState<SortState>(DEFAULT_SORT);
+
+  // The chosen sort is remembered in this browser (restored after mount, so it can't mismatch the server HTML).
+  useEffect(() => {
+    queueMicrotask(() => {
+      try {
+        const saved = localStorage.getItem(SORT_STORAGE_KEY);
+        if (saved) setSortState(parseSort(JSON.parse(saved)));
+      } catch {
+        // Storage can be blocked or hold junk; the default order is fine.
+      }
+    });
+  }, []);
+
+  function setSort(next: SortState) {
+    setSortState(next);
+    try {
+      localStorage.setItem(SORT_STORAGE_KEY, JSON.stringify(next));
+    } catch {
+      // See above.
+    }
+  }
   const [name, setName] = useState(deck.name);
   const [description, setDescription] = useState(deck.description ?? "");
   const [deleting, setDeleting] = useState(false);
@@ -230,8 +256,12 @@ export function DeckBuilder({ deckId, initialDeck, newSetCount }: Props) {
                 {filling ? "Filling…" : "Fill remaining with basics"}
               </button>
             </div>
+            <div className="mb-3">
+              <SortControl sort={sort} onChange={setSort} />
+            </div>
             <Decklist
               entries={deck.mainboard}
+              sort={sort}
               onQuantityChange={(id, qty) => setQuantity(id, "mainboard", qty)}
               onRemove={(id) => removeCard(id, "mainboard")}
               onMove={(id, newZone) => moveCard(id, "mainboard", newZone)}
@@ -247,6 +277,7 @@ export function DeckBuilder({ deckId, initialDeck, newSetCount }: Props) {
               </h2>
               <Decklist
                 entries={deck.maybeboard}
+                sort={sort}
                 onQuantityChange={(id, qty) => setQuantity(id, "maybeboard", qty)}
                 onRemove={(id) => removeCard(id, "maybeboard")}
                 onMove={(id, newZone) => moveCard(id, "maybeboard", newZone)}

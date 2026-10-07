@@ -101,7 +101,7 @@ export function creatureSubtypes(card: Pick<ScryfallCard, "type_line">): string[
   return afterDash.trim().split(/\s+/).filter(Boolean);
 }
 
-const TYPE_CATEGORY_ORDER = [
+export const TYPE_CATEGORY_ORDER = [
   "Battle",
   "Planeswalker",
   "Creature",
