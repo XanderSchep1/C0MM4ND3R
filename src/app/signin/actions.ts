@@ -29,6 +29,8 @@ function authErrorMessage(err: AuthError): string {
   return "Sign-in is temporarily unavailable. Please try again shortly.";
 }
 
+const ALREADY_REGISTERED = "An account with this email already exists — sign in instead.";
+
 const REGISTER_WINDOW_SECONDS = 60 * 60;
 const REGISTER_LIMIT_PER_IP = 6;
 
@@ -58,18 +60,19 @@ export async function registerAction(_prev: FormState, formData: FormData): Prom
   if (password.length < MIN_PASSWORD) return { error: `Password must be at least ${MIN_PASSWORD} characters.` };
   if (password.length > MAX_PASSWORD) return { error: "Password is too long." };
 
-  const existing = await prisma.user.findFirst({ where: { email: { equals: email, mode: "insensitive" } } });
-  if (existing?.passwordHash) return { error: "An account with this email already exists — sign in instead." };
+  // An email that is already registered is never re-claimable by signing up again,
+  // even when that account has no password — otherwise anyone could take it over.
+  const existing = await prisma.user.findFirst({ where: { email: { equals: email, mode: "insensitive" } }, select: { id: true } });
+  if (existing) return { error: ALREADY_REGISTERED };
 
   const passwordHash = await hashPassword(password);
   let userId: string;
-  if (existing) {
-    // A passwordless account is a pre-password-era (dev-login) one; whoever
-    // registers its email first claims it and keeps its decks.
-    await prisma.user.update({ where: { id: existing.id }, data: { passwordHash, ...(name ? { name } : {}) } });
-    userId = existing.id;
-  } else {
+  try {
     userId = (await prisma.user.create({ data: { email, name: name || email.split("@")[0], passwordHash } })).id;
+  } catch (err) {
+    // Two sign-ups racing for the same email: the unique index decides.
+    if (err instanceof Error && "code" in err && err.code === "P2002") return { error: ALREADY_REGISTERED };
+    throw err;
   }
   const recoveryCode = await issueRecoveryCode(userId);
 

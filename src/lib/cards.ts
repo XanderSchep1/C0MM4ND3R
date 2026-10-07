@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { prisma } from "./prisma";
 import { getCardsCollection, getCardByNameFuzzy, searchCards, type SearchOptions } from "./scryfall";
 import type { ScryfallCard } from "./scryfall-types";
+import { MAX_FUZZY_LOOKUPS } from "./limits";
 
 // Gameplay data (name, oracle text, mana cost) rarely changes and Scryfall
 // asks integrators not to hammer the API for it — a week-old cache entry is
@@ -89,8 +90,16 @@ export async function resolveCardsByNames(
     resolved.set(original ?? card.name, card);
   }
 
+  let fuzzyLookups = 0;
   for (const miss of notFound) {
     if (!miss.name) continue;
+    // Each fuzzy lookup is a separate Scryfall call, so a list full of junk
+    // names can't be allowed to fire hundreds of them.
+    if (fuzzyLookups >= MAX_FUZZY_LOOKUPS) {
+      unresolved.push(miss.name);
+      continue;
+    }
+    fuzzyLookups++;
     // /cards/collection requires exact names; fall back to fuzzy search for
     // typos or alternate/foreign spellings.
     const card = await resolveCardByName(miss.name);

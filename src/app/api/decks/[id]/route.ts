@@ -6,6 +6,7 @@ import { validateCommanderDeck } from "@/lib/commander";
 import { analyzeDeck, calculatePriceTotal, estimatePowerLevel } from "@/lib/deck-analysis";
 import { analyzeAnnoyance } from "@/lib/annoyance";
 import { colorIdentityUnion } from "@/lib/card-helpers";
+import { MAX_DECK_DESCRIPTION, MAX_DECK_NAME } from "@/lib/limits";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -37,8 +38,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const body = await request.json().catch(() => ({}));
   const data: { name?: string; description?: string | null; public?: boolean } = {};
-  if (typeof body.name === "string" && body.name.trim()) data.name = body.name.trim();
-  if (typeof body.description === "string" || body.description === null) data.description = body.description;
+  if (typeof body.name === "string" && body.name.trim()) data.name = body.name.trim().slice(0, MAX_DECK_NAME);
+  if (typeof body.description === "string") data.description = body.description.slice(0, MAX_DECK_DESCRIPTION);
+  else if (body.description === null) data.description = null;
   if (typeof body.public === "boolean") data.public = body.public;
 
   const updated = await prisma.deck.update({ where: { id }, data });

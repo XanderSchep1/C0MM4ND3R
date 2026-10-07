@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-07
+
+### Security
+- **Accounts can no longer be taken over by signing up again.** Registering with an email that already exists is always refused, even if that account has no password. (Before, an old password-less account could be claimed by whoever registered its email first.)
+- **Limits on the busy endpoints.** Simulate, suggestions, synergies, upgrades, lands, combos, deck import, card search and autocomplete, adding cards, and creating decks are now rate limited per account (a clear "try again in N seconds" message is shown). This keeps one person — or a script — from flooding the app, the database or Scryfall.
+- **Size caps.** Deck names are limited to 100 characters, notes to 2,000, a card's quantity to 99, a deck to 400 different cards and an account to 100 decks. Pasted decklists are limited to 30,000 characters and 500 lines, and at most 20 unrecognised card names are looked up per import. Importing is now all-or-nothing, so a failed import can't leave a deck half empty.
+- **Browser protections.** Every page now sends a Content-Security-Policy (only scripts carrying a per-request nonce can run; images only from this site and Scryfall; no framing), plus `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy` and `Cross-Origin-Opener-Policy`.
+- **Updated dependencies.** Next.js 16.4.0 (fixes the advisories that affected 16.3.1) and matching Prisma packages, with `next` and `next-auth` pinned to exact versions. The remaining `npm audit` findings are in Prisma's command-line tool and in ESLint's glob handling — build-time only, never part of the running site.
+- **Automated tests.** `npm test` now runs 80 tests, including one that walks every API route and checks it rejects anonymous requests and only ever looks up decks owned by the signed-in user. CI runs them on every push and pull request, and its token is read-only.
+
 ## 2026-10-06
 
 ### New

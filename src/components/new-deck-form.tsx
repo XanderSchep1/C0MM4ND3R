@@ -20,7 +20,8 @@ export function NewDeckForm() {
         body: JSON.stringify({ name }),
       });
       if (!res.ok) {
-        setError("Couldn't create that deck. Try again.");
+        const data = await res.json().catch(() => null);
+        setError(data?.error ?? "Couldn't create that deck. Try again.");
         return;
       }
       const { deck } = await res.json();

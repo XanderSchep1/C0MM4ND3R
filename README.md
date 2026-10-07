@@ -17,8 +17,8 @@ EDHREC's actual Salt Score, which isn't available via any public API.
   `localStorage`, no flash-of-wrong-theme)
 - Postgres + Prisma 7 (`@prisma/adapter-pg`)
 - Auth.js (NextAuth v5) — email + password accounts created in the app itself (passwords stored as salted scrypt
-  hashes, JWT sessions), plus a dev-only "sign in as any email" provider for accounts that predate passwords (only
-  registered when `NODE_ENV !== "production"`)
+  hashes, JWT sessions), plus a dev-only "sign in as any email" provider (only registered when
+  `NODE_ENV !== "production"`)
 - Scryfall REST API, proxied through server routes with in-process rate limiting (their documented limits: 2 req/s
   for `/cards/search`, `/cards/named`, `/cards/collection`; 10 req/s everything else) and a Postgres-backed cache
   (`CardCache`) so repeat views don't re-hit Scryfall
@@ -80,9 +80,21 @@ It prints a random temporary password to pass on; they can change it (and genera
 
 ## Working safely
 
-Every push to `main` deploys to production, and CI (`.github/workflows/ci.yml`) typechecks, lints and builds each push and pull
-request. Work on a branch, open a pull request, and merge when CI is green. In GitHub, Settings → Branches → add a rule for
+Every push to `main` deploys to production, and CI (`.github/workflows/ci.yml`) typechecks, lints, runs the tests (`npm test`) and
+builds each push and pull request. Work on a branch, open a pull request, and merge when CI is green. In GitHub, Settings → Branches → add a rule for
 `main` that requires the **check** job to pass if you want that enforced.
+
+## Security notes
+
+- **Sign-in**: scrypt-hashed passwords, rate limited per email and per network; sign-up never claims an existing account.
+- **API**: every route checks the session first and scopes deck lookups to the signed-in user. `src/app/api/routes.test.ts` discovers
+  every route file and fails if one answers an anonymous request or looks up a deck without the owner filter — a new endpoint is
+  covered automatically. Heavier endpoints use `limitRequest` from `src/lib/api-guard.ts`; size caps live in `src/lib/limits.ts`.
+- **Headers**: `src/proxy.ts` sets a nonce-based Content-Security-Policy per request (so every page renders on demand), and
+  `next.config.ts` adds the static headers. A new external image host, script or font has to be added to `buildCsp` or the browser
+  will block it.
+- **Dependencies**: `next` and `next-auth` are pinned exactly — upgrade deliberately, run `npm audit`, and re-test. The remaining
+  audit findings sit in Prisma's CLI and ESLint tooling, which only run at build time.
 
 ## Deploying to Vercel
 

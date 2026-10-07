@@ -44,7 +44,8 @@ export function CardSearch({ deckId, mode, onAdd }: Props) {
         setCards(data.cards ?? []);
         setSuggestions((suggestData.suggestions ?? []).filter((s: string) => s.toLowerCase() !== query.trim().toLowerCase()));
         setShowSuggestions(true);
-        if ((data.cards ?? []).length === 0) setError("No matches — try a different name, or Scryfall syntax like t:artifact o:draw.");
+        if (data.error) setError(data.error);
+        else if ((data.cards ?? []).length === 0) setError("No matches — try a different name, or Scryfall syntax like t:artifact o:draw.");
       } catch {
         setError("Search failed. Try again.");
       } finally {

@@ -38,7 +38,8 @@ export function KeywordSearch({ deckId, onAdd }: Props) {
         const res = await fetch(`/api/scryfall/search?${params}`);
         const data = await res.json();
         setCards(data.cards ?? []);
-        if ((data.cards ?? []).length === 0) setError("No cards found using that keyword in your colors.");
+        if (data.error) setError(data.error);
+        else if ((data.cards ?? []).length === 0) setError("No cards found using that keyword in your colors.");
       } catch {
         setError("Search failed. Try again.");
       } finally {
