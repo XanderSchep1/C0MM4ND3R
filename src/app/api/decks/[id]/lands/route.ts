@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { limitRequest } from "@/lib/api-guard";
 import { getOwnedDeck, resolveDeck } from "@/lib/deck-data";
 import { colorIdentityUnion } from "@/lib/card-helpers";
 import { computeLandBalance } from "@/lib/land-balance";
@@ -8,6 +9,8 @@ import { LAND_CATEGORIES, suggestLands } from "@/lib/land-suggest";
 async function loadDeck(params: Promise<{ id: string }>) {
   const session = await auth();
   if (!session?.user?.id) return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) } as const;
+  const limited = await limitRequest(session.user.id, "lands");
+  if (limited) return { error: limited } as const;
   const { id } = await params;
   const deck = await getOwnedDeck(id, session.user.id);
   if (!deck) return { error: NextResponse.json({ error: "Not found" }, { status: 404 }) } as const;

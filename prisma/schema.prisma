@@ -111,6 +111,8 @@ model DeckCard {
   name       String
   quantity   Int      @default(1)
   zone       String   @default("mainboard")
+  // The owner's own highlight for this line: "owned" (yellow), "missing" (red) or null.
+  mark       String?
   addedAt    DateTime @default(now())
 
   deck Deck @relation(fields: [deckId], references: [id], onDelete: Cascade)

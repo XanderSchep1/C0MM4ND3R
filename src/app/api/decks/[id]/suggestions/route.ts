@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { limitRequest } from "@/lib/api-guard";
 import { getOwnedDeck, resolveDeck } from "@/lib/deck-data";
 import { analyzeDeck } from "@/lib/deck-analysis";
 import { colorIdentityUnion } from "@/lib/card-helpers";
@@ -8,6 +9,8 @@ import { suggestForGaps } from "@/lib/suggestions";
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const limited = await limitRequest(session.user.id, "suggestions");
+  if (limited) return limited;
 
   const { id } = await params;
   const deck = await getOwnedDeck(id, session.user.id);

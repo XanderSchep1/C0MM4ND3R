@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { limitRequest } from "@/lib/api-guard";
 import { prisma } from "@/lib/prisma";
 import { getOwnedDeck, resolveDeck } from "@/lib/deck-data";
 import { colorIdentityUnion } from "@/lib/card-helpers";
@@ -9,6 +10,8 @@ import { findUpgrades } from "@/lib/set-upgrades";
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const limited = await limitRequest(session.user.id, "upgrades");
+  if (limited) return limited;
 
   const { id } = await params;
   const deck = await getOwnedDeck(id, session.user.id);
@@ -22,6 +25,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const limited = await limitRequest(session.user.id, "upgrades");
+  if (limited) return limited;
 
   const { id } = await params;
   const deck = await getOwnedDeck(id, session.user.id);

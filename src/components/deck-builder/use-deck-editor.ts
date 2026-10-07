@@ -1,0 +1,186 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useToast } from "@/components/toast";
+import type { CardMark } from "@/lib/card-mark";
+import { addToDeck, findEntry, moveBetween, removeFrom, setMarkIn, setQuantityIn, type EditZone } from "@/lib/deck-edits";
+import { computeDeckStats } from "@/lib/deck-stats";
+import { DeckSync } from "@/lib/deck-sync";
+import { MAX_DECK_ROWS } from "@/lib/limits";
+import type { ResolvedDeck, ScryfallCard } from "./types";
+
+const ZONE_LABEL: Record<EditZone, string> = { commander: "Commander", mainboard: "Mainboard", maybeboard: "Maybeboard" };
+
+// Owns the deck on the page. Every edit changes the screen (and the stats) at once, then
+// quietly tells the server; see DeckSync for how the two are kept in step. Removing or moving
+// a card offers Undo.
+export function useDeckEditor(deckId: string, initialDeck: ResolvedDeck) {
+  const { show } = useToast();
+  const showRef = useRef(show);
+  useEffect(() => {
+    showRef.current = show;
+  }, [show]);
+
+  const [deck, setDeck] = useState(initialDeck);
+  const deckRef = useRef(initialDeck); // always the latest deck, even between renders
+
+  // Created after mount (and again if React remounts in development), so nothing here runs during render.
+  const syncRef = useRef<DeckSync<ResolvedDeck> | null>(null);
+  useEffect(() => {
+    const sync = new DeckSync<ResolvedDeck>({
+      fetchDeck: async () => {
+        const res = await fetch(`/api/decks/${deckId}`);
+        return res.ok ? ((await res.json()).deck as ResolvedDeck) : null;
+      },
+      applyServerDeck: (next) => {
+        deckRef.current = next;
+        setDeck(next);
+      },
+      onError: (message) => showRef.current({ message, tone: "error" }),
+    });
+    syncRef.current = sync;
+    return () => {
+      sync.dispose();
+      if (syncRef.current === sync) syncRef.current = null;
+    };
+  }, [deckId]);
+
+  const stats = useMemo(() => computeDeckStats(deck), [deck]);
+
+  const cardsUrl = `/api/decks/${deckId}/cards`;
+  const json = useCallback(
+    (method: string, url: string, body?: unknown) => () =>
+      fetch(url, { method, headers: { "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) }),
+    []
+  );
+  const send = useCallback((request: () => Promise<Response>, fallbackMessage: string) => syncRef.current?.send(request, fallbackMessage), []);
+
+  // Applies an edit to the local deck. Returns false if the edit isn't allowed.
+  const apply = useCallback((edit: (d: ResolvedDeck) => ResolvedDeck | null): boolean => {
+    const next = edit(deckRef.current);
+    if (!next) return false;
+    deckRef.current = next;
+    syncRef.current?.touch();
+    setDeck(next);
+    return true;
+  }, []);
+
+  const setMark = useCallback(
+    (scryfallId: string, zone: EditZone, mark: CardMark | null) => {
+      if (!findEntry(deckRef.current, scryfallId, zone)) return;
+      apply((d) => setMarkIn(d, scryfallId, zone, mark));
+      send(json("PATCH", cardsUrl, { scryfallId, zone, mark }), "Couldn't save that highlight.");
+    },
+    [apply, send, json, cardsUrl]
+  );
+
+  // Pass the full card for an instant update; a bare id (all some panels have) waits for the server.
+  const addCard = useCallback(
+    async (card: ScryfallCard | string, zone: EditZone, quantity = 1) => {
+      if (typeof card === "string") {
+        send(json("POST", cardsUrl, { scryfallId: card, zone, quantity }), "Couldn't add that card.");
+        await syncRef.current?.refresh();
+        return;
+      }
+      if (!apply((d) => addToDeck(d, card, zone, quantity))) {
+        showRef.current({ message: `A deck can hold at most ${MAX_DECK_ROWS} different cards.`, tone: "error" });
+        return;
+      }
+      send(json("POST", cardsUrl, { scryfallId: card.id, zone, quantity }), `Couldn't add ${card.name}.`);
+    },
+    [apply, send, json, cardsUrl]
+  );
+
+  const restoreCard = useCallback(
+    (entry: { card: ScryfallCard; quantity: number; mark?: CardMark | null }, zone: EditZone) => {
+      void addCard(entry.card, zone, entry.quantity);
+      if (entry.mark) setMark(entry.card.id, zone, entry.mark);
+    },
+    [addCard, setMark]
+  );
+
+  const removeCard = useCallback(
+    (scryfallId: string, zone: EditZone, options: { undo?: boolean } = {}) => {
+      const entry = findEntry(deckRef.current, scryfallId, zone);
+      if (!entry) return;
+      apply((d) => removeFrom(d, scryfallId, zone));
+      send(() => fetch(`${cardsUrl}?scryfallId=${encodeURIComponent(scryfallId)}&zone=${zone}`, { method: "DELETE" }), `Couldn't remove ${entry.card.name}.`);
+      if (options.undo !== false) {
+        showRef.current({ message: `Removed ${entry.card.name}`, actionLabel: "Undo", onAction: () => restoreCard(entry, zone) });
+      }
+    },
+    [apply, send, cardsUrl, restoreCard]
+  );
+
+  const setQuantity = useCallback(
+    (scryfallId: string, zone: EditZone, quantity: number) => {
+      const entry = findEntry(deckRef.current, scryfallId, zone);
+      if (!entry) return;
+      if (!(quantity > 0)) return removeCard(scryfallId, zone);
+      apply((d) => setQuantityIn(d, scryfallId, zone, quantity));
+      send(json("PATCH", cardsUrl, { scryfallId, zone, quantity }), `Couldn't change ${entry.card.name}.`);
+    },
+    [apply, send, json, cardsUrl, removeCard]
+  );
+
+  // Moves a whole line between zones. Returns what moved, or null if there was nothing to move.
+  const performMove = useCallback(
+    (scryfallId: string, from: EditZone, to: EditZone) => {
+      const entry = findEntry(deckRef.current, scryfallId, from);
+      if (!entry || from === to) return null;
+      const merged = Boolean(findEntry(deckRef.current, scryfallId, to));
+      apply((d) => moveBetween(d, scryfallId, from, to));
+      send(json("PATCH", cardsUrl, { scryfallId, zone: from, newZone: to }), `Couldn't move ${entry.card.name}.`);
+      return { entry, merged };
+    },
+    [apply, send, json, cardsUrl]
+  );
+
+  const moveCard = useCallback(
+    (scryfallId: string, from: EditZone, to: EditZone) => {
+      const moved = performMove(scryfallId, from, to);
+      // Undoing a move that merged into an existing line couldn't split it back apart, so no Undo then.
+      if (!moved || moved.merged) return;
+      showRef.current({
+        message: `Moved ${moved.entry.card.name} to ${ZONE_LABEL[to]}`,
+        actionLabel: "Undo",
+        onAction: () => performMove(scryfallId, to, from),
+      });
+    },
+    [performMove]
+  );
+
+  // Adds `incoming` and takes one copy of `outgoing` out (used by Upgrades).
+  const swapCard = useCallback(
+    async (incoming: ScryfallCard, outgoing: ScryfallCard) => {
+      const outgoingEntry = findEntry(deckRef.current, outgoing.id, "mainboard");
+      await addCard(incoming, "mainboard");
+      if (outgoingEntry && outgoingEntry.quantity > 1) setQuantity(outgoing.id, "mainboard", outgoingEntry.quantity - 1);
+      else removeCard(outgoing.id, "mainboard", { undo: false });
+      showRef.current({
+        message: `Swapped ${outgoing.name} for ${incoming.name}`,
+        actionLabel: "Undo",
+        onAction: () => {
+          removeCard(incoming.id, "mainboard", { undo: false });
+          void addCard(outgoing, "mainboard");
+        },
+      });
+    },
+    [addCard, setQuantity, removeCard]
+  );
+
+  const setPublic = useCallback(
+    (next: boolean) => {
+      apply((d) => ({ ...d, public: next }));
+      send(json("PATCH", `/api/decks/${deckId}`, { public: next }), "Couldn't change sharing.");
+    },
+    [apply, send, json, deckId]
+  );
+
+  // Waits for queued edits, then reloads the deck from the server (after imports, land fills, …).
+  const refresh = useCallback(async () => {
+    await syncRef.current?.refresh();
+  }, []);
+
+  return { deck, stats, addCard, removeCard, setQuantity, moveCard, setMark, swapCard, setPublic, refresh };
+}

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { limitRequest } from "@/lib/api-guard";
 import { getOwnedDeck, resolveDeck } from "@/lib/deck-data";
 import { colorIdentityUnion, formatPrice, isBasicLand } from "@/lib/card-helpers";
 import { findCombosForCardNames, findComboOpportunities, type ComboCardRef, type ComboVariant } from "@/lib/combos";
@@ -10,6 +11,8 @@ const MAX_RESULTS_PER_GROUP = 10;
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const limited = await limitRequest(session.user.id, "combos");
+  if (limited) return limited;
 
   const { id } = await params;
   const deck = await getOwnedDeck(id, session.user.id);

@@ -17,8 +17,8 @@ EDHREC's actual Salt Score, which isn't available via any public API.
   `localStorage`, no flash-of-wrong-theme)
 - Postgres + Prisma 7 (`@prisma/adapter-pg`)
 - Auth.js (NextAuth v5) — email + password accounts created in the app itself (passwords stored as salted scrypt
-  hashes, JWT sessions), plus a dev-only "sign in as any email" provider for accounts that predate passwords (only
-  registered when `NODE_ENV !== "production"`)
+  hashes, JWT sessions), plus a dev-only "sign in as any email" provider (only registered when
+  `NODE_ENV !== "production"`)
 - Scryfall REST API, proxied through server routes with in-process rate limiting (their documented limits: 2 req/s
   for `/cards/search`, `/cards/named`, `/cards/collection`; 10 req/s everything else) and a Postgres-backed cache
   (`CardCache`) so repeat views don't re-hit Scryfall
@@ -78,11 +78,64 @@ DATABASE_URL="<production url>" node scripts/reset-password.mjs friend@example.c
 
 It prints a random temporary password to pass on; they can change it (and generate a new recovery code) on the Account page.
 
+To remove an account and everything it owns (decks, cards, collection), preview first, then confirm:
+
+```bash
+DATABASE_URL="<production url>" node scripts/delete-user.mjs old@example.com
+DATABASE_URL="<production url>" node scripts/delete-user.mjs old@example.com --yes
+```
+
+It refuses accounts that have a password unless you add `--even-with-password`.
+
+## Backups
+
+Neon's free plan only keeps 6 hours of history, so `.github/workflows/backup.yml` adds a proper safety net: every night (03:17 UTC)
+it asks Neon for a copy-on-write branch of `production` named `backup-<date>T<time>Z`, created without compute (so it costs no
+compute hours) and with an expiry date, so Neon removes it after 6 days. That gives you six daily restore points plus Neon's own
+6-hour history. The script (`scripts/backup-neon.mjs`) never deletes anything and never opens a database connection.
+
+**One-time setup**
+
+1. In the Neon console: Account settings → API keys → create a key.
+2. In your own terminal, store it as a GitHub secret (it prompts for the value, so the key never lands in your shell history):
+   `gh secret set NEON_API_KEY --repo XanderSchep1/C0MM4ND3R`
+3. Run the first backup by hand: `gh workflow run backup.yml --repo XanderSchep1/C0MM4ND3R`, then check `neon branches list --project-id dark-sound-15869711`.
+
+**Restore** (this replaces the production data with the chosen backup and keeps the old state under another name, so it can be undone):
+
+```bash
+neon branches list --project-id dark-sound-15869711
+neon branches restore production backup-2026-10-07T0317Z --project-id dark-sound-15869711 --preserve-under-name production-before-restore
+```
+
+To rescue a single deck or account instead, open the backup branch in the Neon console's SQL editor and copy the rows you need.
+
+> The `restore` command follows `neon branches restore --help` but hasn't been rehearsed end to end. Once the first backup exists, try
+> it on the `dev` branch (make a branch from `dev`, change something in `dev`, restore `dev` from the branch) so you know it works
+> before you ever need it on production.
+
+**Limits to know about**: the backups live in the same Neon project, so they protect against bad deploys, deleted data and corruption but
+not against losing the Neon account itself. The free plan allows 10 branches per project (production + dev + 6 backups fits; a new
+branch of your own could make the nightly backup fail, and GitHub will email you when a scheduled run fails). GitHub also pauses
+scheduled workflows after 60 days without repository activity.
+
 ## Working safely
 
-Every push to `main` deploys to production, and CI (`.github/workflows/ci.yml`) typechecks, lints and builds each push and pull
-request. Work on a branch, open a pull request, and merge when CI is green. In GitHub, Settings → Branches → add a rule for
+Every push to `main` deploys to production, and CI (`.github/workflows/ci.yml`) typechecks, lints, runs the tests (`npm test`) and
+builds each push and pull request. Work on a branch, open a pull request, and merge when CI is green. In GitHub, Settings → Branches → add a rule for
 `main` that requires the **check** job to pass if you want that enforced.
+
+## Security notes
+
+- **Sign-in**: scrypt-hashed passwords, rate limited per email and per network; sign-up never claims an existing account.
+- **API**: every route checks the session first and scopes deck lookups to the signed-in user. `src/app/api/routes.test.ts` discovers
+  every route file and fails if one answers an anonymous request or looks up a deck without the owner filter — a new endpoint is
+  covered automatically. Heavier endpoints use `limitRequest` from `src/lib/api-guard.ts`; size caps live in `src/lib/limits.ts`.
+- **Headers**: `src/proxy.ts` sets a nonce-based Content-Security-Policy per request (so every page renders on demand), and
+  `next.config.ts` adds the static headers. A new external image host, script or font has to be added to `buildCsp` or the browser
+  will block it.
+- **Dependencies**: `next` and `next-auth` are pinned exactly — upgrade deliberately, run `npm audit`, and re-test. The remaining
+  audit findings sit in Prisma's CLI and ESLint tooling, which only run at build time.
 
 ## Deploying to Vercel
 

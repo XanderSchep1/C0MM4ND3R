@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { limitRequest } from "@/lib/api-guard";
 import { prisma } from "@/lib/prisma";
 import { searchAndCacheCards } from "@/lib/cards";
 import { colorIdentityUnion } from "@/lib/card-helpers";
@@ -8,6 +9,8 @@ import { getCardsByIds } from "@/lib/cards";
 export async function GET(request: Request) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const limited = await limitRequest(session.user.id, "search", { cards: [], hasMore: false });
+  if (limited) return limited;
 
   const url = new URL(request.url);
   const q = url.searchParams.get("q")?.trim() ?? "";

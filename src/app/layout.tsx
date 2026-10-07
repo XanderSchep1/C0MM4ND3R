@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { headers } from "next/headers";
 import "./globals.css";
 import { SiteHeader } from "@/components/site-header";
+import { ToastProvider } from "@/components/toast";
 
 // Runs before hydration so the page never flashes the wrong theme: an
 // explicit choice from the toggle wins, otherwise fall back to the OS
@@ -32,7 +34,9 @@ export const metadata: Metadata = {
   description: "Build and tune Magic: The Gathering Commander decks with live Scryfall data.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  // Set per request by src/proxy.ts; the CSP only lets scripts with this nonce run.
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   return (
     <html
       lang="en"
@@ -43,9 +47,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         {/* Plain blocking script (not next/script) as the very first body
             child — runs synchronously during HTML parsing, before anything
             paints, so the page never flashes the wrong theme. */}
-        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
-        <SiteHeader />
-        <main className="flex-1">{children}</main>
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+        <ToastProvider>
+          <SiteHeader />
+          <main className="flex-1">{children}</main>
+        </ToastProvider>
       </body>
     </html>
   );
