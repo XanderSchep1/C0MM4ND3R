@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { buildKeywordClause } from "@/lib/search-query";
 import { CardTile, TILE_GRID_CLASS, tileButtonClass } from "./card-tile";
 import { OverBudgetNote, useBudget } from "./budget";
@@ -18,6 +18,7 @@ interface Props {
 // quick single-card lookup.
 export function KeywordSearch({ deckId, onAdd }: Props) {
   const { inBudget } = useBudget();
+  const inputRef = useRef<HTMLInputElement>(null);
   const [term, setTerm] = useState("");
   const [cards, setCards] = useState<ScryfallCard[]>([]);
   const [loading, setLoading] = useState(false);
@@ -59,6 +60,11 @@ export function KeywordSearch({ deckId, onAdd }: Props) {
     try {
       await onAdd(card, zone);
       setCards((prev) => (zone === "mainboard" ? prev.filter((c) => c.id !== card.id) : prev));
+      // Back to the search box so the next keyword is one keystroke away (not on touch screens: it would pop the keyboard up).
+      if (window.matchMedia("(pointer: fine)").matches) {
+        inputRef.current?.focus({ preventScroll: true });
+        inputRef.current?.select();
+      }
     } finally {
       setAddingId(null);
     }
@@ -67,6 +73,7 @@ export function KeywordSearch({ deckId, onAdd }: Props) {
   return (
     <div className="flex flex-col gap-3">
       <input
+        ref={inputRef}
         value={term}
         onChange={(e) => setTerm(e.target.value)}
         placeholder="Search by keyword or ability… (e.g. flying, lifelink, draw a card)"

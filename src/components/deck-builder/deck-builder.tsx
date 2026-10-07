@@ -26,7 +26,7 @@ import { Decklist } from "./decklist";
 import { SortControl } from "./sort-control";
 import { DEFAULT_SORT, parseSort, type SortState } from "@/lib/deck-sort";
 import { useDeckEditor } from "./use-deck-editor";
-import type { ResolvedDeck } from "./types";
+import type { DeckZone, ResolvedDeck, ScryfallCard } from "./types";
 
 interface Props {
   deckId: string;
@@ -46,6 +46,8 @@ export function DeckBuilder({ deckId, initialDeck, newSetCount }: Props) {
   // Edits show up (and the stats update) the moment you click; the server is told in the background.
   const { deck, stats, addCard, removeCard, setQuantity, moveCard, setMark, swapCard, setPublic, refresh } = useDeckEditor(deckId, initialDeck);
   const { validation, analysis, powerLevel, priceTotal, annoyance } = stats;
+  // Adds from the search and suggestion tabs say so ("Added … · Undo"), so it shows wherever the page is scrolled.
+  const addAnnounced = (card: ScryfallCard, zone: DeckZone) => addCard(card, zone, 1, { announce: true });
   const [tab, setTab] = useState<Tab>("search");
   const [searchFocus, setSearchFocus] = useState(0);
   const [sort, setSortState] = useState<SortState>(DEFAULT_SORT);
@@ -204,20 +206,20 @@ export function DeckBuilder({ deckId, initialDeck, newSetCount }: Props) {
               ))}
             </div>
             {BUDGET_TABS.includes(tab) && <BudgetControl />}
-            {tab === "search" && <CardSearch deckId={deckId} mode="card" focusSignal={searchFocus} onAdd={(card, zone) => addCard(card, zone)} />}
-            {tab === "keyword" && <KeywordSearch deckId={deckId} onAdd={(card, zone) => addCard(card, zone)} />}
+            {tab === "search" && <CardSearch deckId={deckId} mode="card" focusSignal={searchFocus} onAdd={addAnnounced} />}
+            {tab === "keyword" && <KeywordSearch deckId={deckId} onAdd={addAnnounced} />}
             {tab === "import" && <ImportPanel onImport={handleImport} />}
             {tab === "export" && <ExportPanel deck={deck} />}
             {tab === "suggestions" && (
-              <SuggestionsPanel deckId={deckId} hasCommander={deck.commanders.length > 0} onAdd={(card) => addCard(card, "mainboard")} />
+              <SuggestionsPanel deckId={deckId} hasCommander={deck.commanders.length > 0} onAdd={(card) => addAnnounced(card, "mainboard")} />
             )}
             {tab === "synergies" && (
-              <SynergiesPanel deckId={deckId} hasCommander={deck.commanders.length > 0} onAdd={(card, zone) => addCard(card, zone)} />
+              <SynergiesPanel deckId={deckId} hasCommander={deck.commanders.length > 0} onAdd={addAnnounced} />
             )}
             {tab === "combos" && (
               <CombosPanel deckId={deckId} hasCommander={deck.commanders.length > 0} onAdd={(scryfallId) => addCard(scryfallId, "mainboard")} />
             )}
-            {tab === "salt" && <SaltPanel deckId={deckId} report={annoyance} onAdd={(card, zone) => addCard(card, zone)} />}
+            {tab === "salt" && <SaltPanel deckId={deckId} report={annoyance} onAdd={addAnnounced} />}
             {tab === "upgrades" && (
               <ReplacementsPanel deckId={deckId} hasCommander={deck.commanders.length > 0} onSwap={(incoming, outgoing) => swapCard(incoming, outgoing)} />
             )}
@@ -225,14 +227,14 @@ export function DeckBuilder({ deckId, initialDeck, newSetCount }: Props) {
               <NewCardsPanel
                 deckId={deckId}
                 hasCommander={deck.commanders.length > 0}
-                onAdd={(card, zone) => addCard(card, zone)}
+                onAdd={addAnnounced}
                 onSwap={(incoming, outgoing) => swapCard(incoming, outgoing)}
               />
             )}
             {tab === "lands" && <LandsPanel deckId={deckId} hasCommander={deck.commanders.length > 0} onChanged={refresh} />}
             {tab === "playtest" && <PlaytestPanel commanders={deck.commanders} mainboard={deck.mainboard} />}
             {tab === "simulate" && (
-              <SimulatePanel deckId={deckId} hasCommander={deck.commanders.length > 0} onAdd={(card, zone) => addCard(card, zone)} />
+              <SimulatePanel deckId={deckId} hasCommander={deck.commanders.length > 0} onAdd={addAnnounced} />
             )}
           </section>
 

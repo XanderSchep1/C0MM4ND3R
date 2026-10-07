@@ -24,7 +24,6 @@ export function CardSearch({ deckId, mode, onAdd, focusSignal = 0 }: Props) {
   const [cards, setCards] = useState<ScryfallCard[]>([]);
   const [settledQuery, setSettledQuery] = useState(""); // the query `cards` answers
   const [suggestions, setSuggestions] = useState<string[]>([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [addingId, setAddingId] = useState<string | null>(null);
@@ -80,7 +79,6 @@ export function CardSearch({ deckId, mode, onAdd, focusSignal = 0 }: Props) {
         setSettledQuery(query);
         setActiveIndex(0);
         setSuggestions((suggestData.suggestions ?? []).filter((s: string) => s.toLowerCase() !== query.trim().toLowerCase()));
-        setShowSuggestions(true);
         if (data.error) setError(data.error);
         else if (results.length === 0) setError("No matches — try a different name, or Scryfall syntax like t:artifact o:draw.");
         if (pendingZone.current) {
@@ -97,13 +95,17 @@ export function CardSearch({ deckId, mode, onAdd, focusSignal = 0 }: Props) {
     return () => clearTimeout(handle);
   }, [query, mode, deckId]);
 
-  async function handleAdd(card: ScryfallCard, zone: DeckZone, viaKeyboard = false) {
+  async function handleAdd(card: ScryfallCard, zone: DeckZone) {
     setAddingId(card.id + zone);
     try {
       await onAdd(card, zone);
       setJustAdded({ id: card.id, name: card.name, zone });
-      // Keep the results up and select the text, so typing the next card name just replaces it.
-      if (viaKeyboard) inputRef.current?.select();
+      // Back to the search box with its text selected, so the next card is one keystroke away and the
+      // results stay up. (Not on touch screens, where focusing it would pop the keyboard up after every add.)
+      if (window.matchMedia("(pointer: fine)").matches) {
+        inputRef.current?.focus({ preventScroll: true });
+        inputRef.current?.select();
+      }
     } finally {
       setAddingId(null);
     }
@@ -113,13 +115,13 @@ export function CardSearch({ deckId, mode, onAdd, focusSignal = 0 }: Props) {
     addFirstRef.current = (results, zone, forQuery) => {
       const { shown, hidden } = splitByBudget(results, inBudget, forQuery);
       const first = (showOverBudget ? [...shown, ...hidden] : shown)[0];
-      if (first) void handleAdd(first, zone, true);
+      if (first) void handleAdd(first, zone);
     };
   });
 
   function addActive(zone: DeckZone) {
     const card = visible[activeIndex] ?? visible[0];
-    if (card) void handleAdd(card, zone, true);
+    if (card) void handleAdd(card, zone);
   }
 
   function moveActive(delta: number) {
@@ -140,7 +142,9 @@ export function CardSearch({ deckId, mode, onAdd, focusSignal = 0 }: Props) {
       if (loading || settledQuery !== query) pendingZone.current = zone;
       else addActive(zone);
     } else if (e.key === "Escape") {
-      setShowSuggestions(false);
+      // Clear the box; pressing it again leaves the box.
+      if (query) setQuery("");
+      else inputRef.current?.blur();
     }
   }
 
@@ -153,39 +157,32 @@ export function CardSearch({ deckId, mode, onAdd, focusSignal = 0 }: Props) {
           ref={inputRef}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          onFocus={() => {
-            setShowSuggestions(true);
-            setFocused(true);
-          }}
-          onBlur={() => {
-            setShowSuggestions(false);
-            setFocused(false);
-          }}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
           onKeyDown={onKeyDown}
           placeholder={mode === "commander" ? "Search for a commander by name…" : "Search cards by name… (or Scryfall syntax like t:artifact o:draw)"}
           aria-label={mode === "commander" ? "Search for a commander" : "Search for cards"}
           className="w-full rounded-md border border-black/15 px-3 py-2 text-sm dark:border-white/15 dark:bg-black"
         />
-        {showSuggestions && suggestions.length > 0 && (
-          <ul className="absolute inset-x-0 top-full z-20 mt-1 max-h-56 overflow-y-auto rounded-md border border-black/15 bg-white text-sm shadow-lg dark:border-white/15 dark:bg-black">
-            {suggestions.map((s) => (
-              <li key={s}>
-                <button
-                  type="button"
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    setQuery(s);
-                    setShowSuggestions(false);
-                  }}
-                  className="block w-full px-3 py-1.5 text-left hover:bg-black/5 dark:hover:bg-white/10"
-                >
-                  {s}
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
       </div>
+      {suggestions.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 text-xs">
+          <span className="text-black/40 dark:text-white/40">Did you mean</span>
+          {suggestions.slice(0, 6).map((name) => (
+            <button
+              key={name}
+              type="button"
+              onClick={() => {
+                setQuery(name);
+                inputRef.current?.focus({ preventScroll: true });
+              }}
+              className="rounded-full border border-black/15 px-2 py-0.5 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+            >
+              {name}
+            </button>
+          ))}
+        </div>
+      )}
       <p className="-mt-1 text-[11px] text-black/40 dark:text-white/40">
         {mode === "commander" ? (
           <>

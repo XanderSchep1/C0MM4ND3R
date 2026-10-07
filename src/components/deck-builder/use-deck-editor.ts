@@ -24,6 +24,10 @@ export function useDeckEditor(deckId: string, initialDeck: ResolvedDeck) {
   const [deck, setDeck] = useState(initialDeck);
   const deckRef = useRef(initialDeck); // always the latest deck, even between renders
 
+  // addCard's Undo needs removeCard / setQuantity, which are defined after it (they use addCard too).
+  const removeCardRef = useRef<(scryfallId: string, zone: EditZone, options?: { undo?: boolean }) => void>(() => {});
+  const undoQuantityRef = useRef<(scryfallId: string, zone: EditZone, quantity: number) => void>(() => {});
+
   // Created after mount (and again if React remounts in development), so nothing here runs during render.
   const syncRef = useRef<DeckSync<ResolvedDeck> | null>(null);
   useEffect(() => {
@@ -75,18 +79,30 @@ export function useDeckEditor(deckId: string, initialDeck: ResolvedDeck) {
   );
 
   // Pass the full card for an instant update; a bare id (all some panels have) waits for the server.
+  // `announce` shows an "Added … · Undo" toast, so an add is visible wherever the page is scrolled.
   const addCard = useCallback(
-    async (card: ScryfallCard | string, zone: EditZone, quantity = 1) => {
+    async (card: ScryfallCard | string, zone: EditZone, quantity = 1, options: { announce?: boolean } = {}) => {
       if (typeof card === "string") {
         send(json("POST", cardsUrl, { scryfallId: card, zone, quantity }), "Couldn't add that card.");
         await syncRef.current?.refresh();
         return;
       }
+      const hadBefore = findEntry(deckRef.current, card.id, zone)?.quantity ?? 0;
       if (!apply((d) => addToDeck(d, card, zone, quantity))) {
         showRef.current({ message: `A deck can hold at most ${MAX_DECK_ROWS} different cards.`, tone: "error" });
         return;
       }
       send(json("POST", cardsUrl, { scryfallId: card.id, zone, quantity }), `Couldn't add ${card.name}.`);
+      if (options.announce) {
+        showRef.current({
+          key: "added",
+          message: `Added ${card.name} to the ${ZONE_LABEL[zone]}`,
+          actionLabel: "Undo",
+          durationMs: 4000,
+          // Back to how many copies there were before (none, if it was new).
+          onAction: () => (hadBefore > 0 ? undoQuantityRef.current(card.id, zone, hadBefore) : removeCardRef.current(card.id, zone, { undo: false })),
+        });
+      }
     },
     [apply, send, json, cardsUrl]
   );
@@ -122,6 +138,11 @@ export function useDeckEditor(deckId: string, initialDeck: ResolvedDeck) {
     },
     [apply, send, json, cardsUrl, removeCard]
   );
+
+  useEffect(() => {
+    removeCardRef.current = removeCard;
+    undoQuantityRef.current = setQuantity;
+  }, [removeCard, setQuantity]);
 
   // Moves a whole line between zones. Returns what moved, or null if there was nothing to move.
   const performMove = useCallback(
