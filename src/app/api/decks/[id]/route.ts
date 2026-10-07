@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { getOwnedDeck, resolveDeck } from "@/lib/deck-data";
+import { getDeckAccessWithCards } from "@/lib/deck-access";
+import { resolveDeck } from "@/lib/deck-data";
 import { computeDeckStats } from "@/lib/deck-stats";
 import { MAX_DECK_DESCRIPTION, MAX_DECK_NAME } from "@/lib/limits";
 
@@ -10,11 +11,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  const deck = await getOwnedDeck(id, session.user.id);
-  if (!deck) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const access = await getDeckAccessWithCards(id, session.user.id);
+  if (!access) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const resolved = await resolveDeck(deck, { withMarks: true });
-  return NextResponse.json({ deck: resolved, ...computeDeckStats(resolved) });
+  // Highlights are the owner's private notes; a friend invited to the deck sees who suggested what instead.
+  const resolved = await resolveDeck(access.deck, { withMarks: access.role === "owner", withAuthors: true });
+  return NextResponse.json({ deck: resolved, role: access.role, ...computeDeckStats(resolved) });
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {

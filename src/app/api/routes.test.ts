@@ -33,6 +33,13 @@ vi.mock("@/lib/prisma", () => {
 });
 
 const API_DIR = path.resolve(import.meta.dirname);
+
+// A deck lookup is safe if it can only match decks this user owns, or (for the few read-only routes a
+// friend may use) decks this user was invited to. Anything looser (no user in the filter) fails.
+function reachableOnlyBy(where: { userId?: string; OR?: { userId?: string; collaborators?: { some?: { userId?: string } } }[] }, userId: string): boolean {
+  if (where.userId === userId) return true;
+  return Array.isArray(where.OR) && where.OR.length > 0 && where.OR.every((clause) => clause.userId === userId || clause.collaborators?.some?.userId === userId);
+}
 const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const;
 
 function findRouteFiles(dir: string): string[] {
@@ -110,7 +117,8 @@ describe("API routes", () => {
         expect(res.status, `${method} should answer 404 for a deck that isn't yours`).toBe(404);
         expect(mocks.deckFindFirst, `${method} should look the deck up`).toHaveBeenCalled();
         for (const [args] of mocks.deckFindFirst.mock.calls) {
-          expect(args.where, `${method} must filter decks by owner`).toMatchObject({ id: "deck-1", userId: "user-1" });
+          expect(args.where.id, `${method} must look up the one deck it was asked for`).toBe("deck-1");
+          expect(reachableOnlyBy(args.where, "user-1"), `${method} must only find decks the signed-in user owns or was invited to`).toBe(true);
         }
       }
     });

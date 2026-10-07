@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { CardTile, TILE_GRID_CLASS, cardTileId, tileButtonClass } from "./card-tile";
 import { OverBudgetNote, useBudget } from "./budget";
+import { useSuggesting } from "./suggest-mode";
 import { splitByBudget } from "@/lib/budget-filter";
 import type { ScryfallCard, DeckZone } from "./types";
 
@@ -18,6 +19,7 @@ const LOOKS_LIKE_SYNTAX = /[a-z!@-]+[:=]|[<>]=?/i;
 const ZONE_NAME: Record<DeckZone, string> = { commander: "commander", mainboard: "the Mainboard", maybeboard: "the Maybeboard" };
 
 export function CardSearch({ deckId, mode, onAdd, focusSignal = 0 }: Props) {
+  const suggesting = useSuggesting();
   const { inBudget } = useBudget();
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
@@ -188,6 +190,11 @@ export function CardSearch({ deckId, mode, onAdd, focusSignal = 0 }: Props) {
           <>
             <Key>Enter</Key> sets the first match as commander
           </>
+        ) : suggesting ? (
+          <>
+            <Key>Enter</Key> suggests the highlighted card · <Key>↑</Key>
+            <Key>↓</Key> choose · press <Key>/</Key> anywhere to search
+          </>
         ) : (
           <>
             <Key>Enter</Key> adds the highlighted card · <Key>Shift</Key>+<Key>Enter</Key> adds it to the Maybeboard · <Key>↑</Key>
@@ -224,15 +231,17 @@ export function CardSearch({ deckId, mode, onAdd, focusSignal = 0 }: Props) {
                       disabled={addingId === card.id + "mainboard"}
                       className={tileButtonClass("primary")}
                     >
-                      {addedLabel(card, "mainboard", "Add")}
+                      {addedLabel(card, "mainboard", suggesting ? "Suggest" : "Add")}
                     </button>
-                    <button
-                      onClick={() => handleAdd(card, "maybeboard")}
-                      disabled={addingId === card.id + "maybeboard"}
-                      className={tileButtonClass("secondary")}
-                    >
-                      {addedLabel(card, "maybeboard", "Maybe")}
-                    </button>
+                    {!suggesting && (
+                      <button
+                        onClick={() => handleAdd(card, "maybeboard")}
+                        disabled={addingId === card.id + "maybeboard"}
+                        className={tileButtonClass("secondary")}
+                      >
+                        {addedLabel(card, "maybeboard", "Maybe")}
+                      </button>
+                    )}
                   </>
                 )
               }

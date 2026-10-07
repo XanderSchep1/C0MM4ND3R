@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSuggesting } from "./suggest-mode";
 import { CardTile, tileButtonClass } from "./card-tile";
 import { useBudget } from "./budget";
 import type { ScryfallCard, SynergyGroup, DeckZone } from "./types";
@@ -12,6 +13,7 @@ interface Props {
 }
 
 export function SynergiesPanel({ deckId, hasCommander, onAdd }: Props) {
+  const suggesting = useSuggesting();
   const { inBudget } = useBudget();
   const [groups, setGroups] = useState<SynergyGroup[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -81,15 +83,17 @@ export function SynergiesPanel({ deckId, hasCommander, onAdd }: Props) {
                       disabled={addingId === card.id + "mainboard"}
                       className={tileButtonClass("primary")}
                     >
-                      Add
+                      {suggesting ? "Suggest" : "Add"}
                     </button>
-                    <button
-                      onClick={() => handleAdd(card, "maybeboard")}
-                      disabled={addingId === card.id + "maybeboard"}
-                      className={tileButtonClass("secondary")}
-                    >
-                      Maybe
-                    </button>
+                    {!suggesting && (
+                      <button
+                        onClick={() => handleAdd(card, "maybeboard")}
+                        disabled={addingId === card.id + "maybeboard"}
+                        className={tileButtonClass("secondary")}
+                      >
+                        Maybe
+                      </button>
+                    )}
                   </>
                 }
               />

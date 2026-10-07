@@ -9,6 +9,7 @@ import { CardNameText, HoverPreview } from "./card-hover-name";
 import { MarkedListPanel } from "./marked-list-panel";
 import { ManaCost } from "./mana-cost";
 import { useCollection } from "./collection";
+import type { DeckRole } from "@/lib/deck-access";
 import type { DeckCardEntry, DeckZone, ScryfallCard } from "./types";
 
 // Yellow = "I own this card", red = "I don't have it yet". Colours are fixed so the
@@ -25,6 +26,10 @@ interface Props {
   sort: SortState;
   // "Mainboard" / "Maybeboard": names the copied lists and downloaded files.
   listName: string;
+  zone: DeckZone;
+  // Who is looking. Owners get every control; a friend invited to the deck only sees the cards, and may
+  // change the ones they suggested in the Maybeboard. Highlights are the owner's private notes.
+  viewer: { role: DeckRole; id: string };
   onQuantityChange: (scryfallId: string, quantity: number) => void;
   onRemove: (scryfallId: string) => void;
   onMove: (scryfallId: string, newZone: DeckZone) => void;
@@ -139,8 +144,9 @@ function RowMenu({ name, items }: { name: string; items: { label: string; onSele
   );
 }
 
-export function Decklist({ entries, sort, listName, onQuantityChange, onRemove, onMove, onMark, onChooseArt, moveTargets }: Props) {
+export function Decklist({ entries, sort, listName, zone, viewer, onQuantityChange, onRemove, onMove, onMark, onChooseArt, moveTargets }: Props) {
   const { unique, owned } = useCollection();
+  const isOwner = viewer.role === "owner";
   // Which highlighted list (owned / missing) is open for copying, if any.
   const [openList, setOpenList] = useState<CardMark | null>(null);
   if (entries.length === 0) {
@@ -151,29 +157,31 @@ export function Decklist({ entries, sort, listName, onQuantityChange, onRemove, 
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-black/50 dark:text-white/50">
-        <span>Highlight button on each line: once = yellow, twice = red.</span>
-        {MARKS.map(({ mark, label, swatch }) => {
-          const count = entries.filter((e) => e.mark === mark).length;
-          return (
-            <button
-              key={mark}
-              type="button"
-              onClick={() => setOpenList((open) => (open === mark ? null : mark))}
-              aria-expanded={openList === mark}
-              title={`See and copy the ${label.toLowerCase()} cards`}
-              className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 font-medium hover:bg-black/5 dark:hover:bg-white/10 ${
-                openList === mark ? "border-black/40 bg-black/5 text-black dark:border-white/50 dark:bg-white/10 dark:text-white" : "border-black/15 dark:border-white/20"
-              }`}
-            >
-              <span className={`h-3 w-3 rounded-full ${swatch}`} aria-hidden="true" />
-              {label} · {count}
-              <span aria-hidden="true">{openList === mark ? "▴" : "▾"}</span>
-            </button>
-          );
-        })}
-      </div>
-      {openList && (
+      {isOwner && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-black/50 dark:text-white/50">
+          <span>Highlight button on each line: once = yellow, twice = red.</span>
+          {MARKS.map(({ mark, label, swatch }) => {
+            const count = entries.filter((e) => e.mark === mark).length;
+            return (
+              <button
+                key={mark}
+                type="button"
+                onClick={() => setOpenList((open) => (open === mark ? null : mark))}
+                aria-expanded={openList === mark}
+                title={`See and copy the ${label.toLowerCase()} cards`}
+                className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 font-medium hover:bg-black/5 dark:hover:bg-white/10 ${
+                  openList === mark ? "border-black/40 bg-black/5 text-black dark:border-white/50 dark:bg-white/10 dark:text-white" : "border-black/15 dark:border-white/20"
+                }`}
+              >
+                <span className={`h-3 w-3 rounded-full ${swatch}`} aria-hidden="true" />
+                {label} · {count}
+                <span aria-hidden="true">{openList === mark ? "▴" : "▾"}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+      {isOwner && openList && (
         <MarkedListPanel
           title={`${MARKS.find((m) => m.mark === openList)!.label} cards in the ${listName}`}
           swatch={MARKS.find((m) => m.mark === openList)!.swatch}
@@ -192,7 +200,12 @@ export function Decklist({ entries, sort, listName, onQuantityChange, onRemove, 
           <ul className="flex flex-col divide-y divide-black/5 dark:divide-white/5">
             {group.entries.map((entry) => {
               const card = entry.card;
-              const rowTint = MARKS.find((m) => m.mark === entry.mark)?.row;
+              const rowTint = isOwner ? MARKS.find((m) => m.mark === entry.mark)?.row : undefined;
+              // A friend's suggestion: shown with their name; the owner can accept or dismiss it.
+              const suggestion = zone === "maybeboard" ? entry.addedBy : null;
+              const mine = suggestion?.id === viewer.id;
+              // A friend may only change what they suggested themselves.
+              const friendCanChange = !isOwner && mine;
               return (
                 <HoverPreview
                   as="li"
@@ -205,7 +218,15 @@ export function Decklist({ entries, sort, listName, onQuantityChange, onRemove, 
                 >
                   <span className="w-6 shrink-0 text-right tabular-nums text-black/50 dark:text-white/50">{entry.quantity}×</span>
                   <CardNameText name={card.name} className="min-w-[8.5rem] flex-1 truncate" />
-                  {!entry.mark && unique > 0 && owned(card) < entry.quantity && (
+                  {suggestion && (
+                    <span
+                      className="shrink-0 rounded bg-[#2a78d6]/12 px-1.5 py-0.5 text-[10px] font-semibold text-[#1c5aa8] dark:bg-[#3987e5]/20 dark:text-[#7db3f0]"
+                      title={`Suggested by ${suggestion.name}`}
+                    >
+                      {mine ? "You suggested" : `Suggested by ${suggestion.name}`}
+                    </span>
+                  )}
+                  {isOwner && !entry.mark && unique > 0 && owned(card) < entry.quantity && (
                     <span className="shrink-0 rounded bg-[#fab219]/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-[#8a5a00] dark:text-[#fab219]" title="Not in your collection">
                       Need
                     </span>
@@ -213,27 +234,56 @@ export function Decklist({ entries, sort, listName, onQuantityChange, onRemove, 
                   <span className="shrink-0">
                     <ManaCost cost={cardManaCost(card)} />
                   </span>
-                  <div className="flex shrink-0 items-center justify-end gap-1">
-                    <HighlightButton name={card.name} mark={entry.mark} onChange={(mark) => onMark(card.id, mark)} />
-                    <button
-                      onClick={() => onQuantityChange(card.id, entry.quantity - 1)}
-                      className={SMALL_BUTTON}
-                      aria-label={entry.quantity <= 1 ? `Remove ${card.name}` : `Remove one ${card.name}`}
-                    >
-                      −
-                    </button>
-                    <button onClick={() => onQuantityChange(card.id, entry.quantity + 1)} className={SMALL_BUTTON} aria-label={`Add one ${card.name}`}>
-                      +
-                    </button>
-                    <RowMenu
-                      name={card.name}
-                      items={[
-                        { label: "Choose art…", onSelect: () => onChooseArt(card) },
-                        ...moveTargets.map((t) => ({ label: t.label, onSelect: () => onMove(card.id, t.zone) })),
-                        { label: "Remove from deck", onSelect: () => onRemove(card.id) },
-                      ]}
-                    />
-                  </div>
+                  {isOwner && (
+                    <div className="flex shrink-0 items-center justify-end gap-1">
+                      {suggestion && (
+                        <>
+                          <button
+                            onClick={() => onMove(card.id, "mainboard")}
+                            className="rounded border border-[#0b7a0b]/50 bg-[#0ca30c]/10 px-2 py-0.5 text-[11px] font-semibold text-[#0b7a0b] hover:bg-[#0ca30c]/20 dark:text-[#3fd13f]"
+                            aria-label={`Accept ${card.name} into the Mainboard`}
+                            title="Add it to your Mainboard"
+                          >
+                            Accept
+                          </button>
+                          <button
+                            onClick={() => onRemove(card.id)}
+                            className="rounded border border-black/20 px-2 py-0.5 text-[11px] font-semibold hover:bg-black/5 dark:border-white/25 dark:hover:bg-white/10"
+                            aria-label={`Dismiss ${card.name}`}
+                            title="Remove the suggestion"
+                          >
+                            Dismiss
+                          </button>
+                        </>
+                      )}
+                      <HighlightButton name={card.name} mark={entry.mark} onChange={(mark) => onMark(card.id, mark)} />
+                      <button
+                        onClick={() => onQuantityChange(card.id, entry.quantity - 1)}
+                        className={SMALL_BUTTON}
+                        aria-label={entry.quantity <= 1 ? `Remove ${card.name}` : `Remove one ${card.name}`}
+                      >
+                        −
+                      </button>
+                      <button onClick={() => onQuantityChange(card.id, entry.quantity + 1)} className={SMALL_BUTTON} aria-label={`Add one ${card.name}`}>
+                        +
+                      </button>
+                      <RowMenu
+                        name={card.name}
+                        items={[
+                          { label: "Choose art…", onSelect: () => onChooseArt(card) },
+                          ...moveTargets.map((t) => ({ label: t.label, onSelect: () => onMove(card.id, t.zone) })),
+                          { label: "Remove from deck", onSelect: () => onRemove(card.id) },
+                        ]}
+                      />
+                    </div>
+                  )}
+                  {friendCanChange && (
+                    <div className="flex shrink-0 items-center justify-end gap-1">
+                      <button onClick={() => onRemove(card.id)} className="rounded border border-black/20 px-2 py-0.5 text-[11px] font-semibold hover:bg-black/5 dark:border-white/25 dark:hover:bg-white/10" aria-label={`Take back your suggestion of ${card.name}`}>
+                        Take back
+                      </button>
+                    </div>
+                  )}
                 </HoverPreview>
               );
             })}

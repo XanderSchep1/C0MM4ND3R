@@ -20,32 +20,45 @@ import { LandsPanel } from "./lands-panel";
 import { PlaytestPanel } from "./playtest-panel";
 import { CollectionProvider, ToBuySummary } from "./collection";
 import { BudgetControl, BudgetProvider } from "./budget";
+import { SuggestModeProvider } from "./suggest-mode";
 import { mostExpensive } from "@/lib/card-helpers";
 import { ShareControl } from "./share-control";
 import { Decklist } from "./decklist";
 import { SortControl } from "./sort-control";
 import { ArtPicker } from "./art-picker";
 import { DEFAULT_SORT, parseSort, type SortState } from "@/lib/deck-sort";
+import { CollaboratorsControl } from "./collaborators-control";
 import { useDeckEditor } from "./use-deck-editor";
+import type { DeckRole } from "@/lib/deck-access";
 import type { DeckZone, ResolvedDeck, ScryfallCard } from "./types";
 
 interface Props {
   deckId: string;
   initialDeck: ResolvedDeck;
   newSetCount: number;
+  // "owner" can do everything. A friend the owner invited ("contributor") can look and suggest cards (they wait in the
+  // Maybeboard for the owner), and change only their own suggestions.
+  role: DeckRole;
+  viewer: { id: string; name: string };
+  ownerName: string;
 }
 
 type Tab = "search" | "keyword" | "import" | "export" | "suggestions" | "synergies" | "combos" | "salt" | "simulate" | "upgrades" | "newcards" | "lands" | "playtest";
 
-// "Upgrades" looks for cheaper / pricier replacements for the cards you have; "New cards" checks recently released sets.
 const SORT_STORAGE_KEY = "deck-list-sort";
 
+// "Upgrades" looks for cheaper / pricier replacements for the cards you have; "New cards" checks recently released sets.
 const TAB_LABELS: Partial<Record<Tab, string>> = { newcards: "New cards" };
 
-export function DeckBuilder({ deckId, initialDeck, newSetCount }: Props) {
+const OWNER_TABS: Tab[] = ["search", "keyword", "import", "export", "suggestions", "synergies", "combos", "salt", "simulate", "upgrades", "newcards", "lands", "playtest"];
+// A friend invited to the deck only needs to find cards to suggest.
+const FRIEND_TABS: Tab[] = ["search", "keyword", "suggestions", "synergies"];
+
+export function DeckBuilder({ deckId, initialDeck, newSetCount, role, viewer, ownerName }: Props) {
   const router = useRouter();
+  const isOwner = role === "owner";
   // Edits show up (and the stats update) the moment you click; the server is told in the background.
-  const { deck, stats, addCard, removeCard, setQuantity, moveCard, setMark, changePrinting, swapCard, setPublic, refresh } = useDeckEditor(deckId, initialDeck);
+  const { deck, stats, addCard, removeCard, setQuantity, moveCard, setMark, changePrinting, swapCard, setPublic, refresh } = useDeckEditor(deckId, initialDeck, { role, id: viewer.id, name: viewer.name });
   const { validation, analysis, powerLevel, priceTotal, annoyance } = stats;
   // Adds from the search and suggestion tabs say so ("Added … · Undo"), so it shows wherever the page is scrolled.
   const addAnnounced = (card: ScryfallCard, zone: DeckZone) => addCard(card, zone, 1, { announce: true });
@@ -107,7 +120,7 @@ export function DeckBuilder({ deckId, initialDeck, newSetCount }: Props) {
   }
 
   async function saveName() {
-    if (!name.trim() || name === deck.name) return;
+    if (!isOwner || !name.trim() || name === deck.name) return;
     await fetch(`/api/decks/${deckId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -117,7 +130,7 @@ export function DeckBuilder({ deckId, initialDeck, newSetCount }: Props) {
   }
 
   async function saveDescription() {
-    if (description === (deck.description ?? "")) return;
+    if (!isOwner || description === (deck.description ?? "")) return;
     await fetch(`/api/decks/${deckId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -149,35 +162,52 @@ export function DeckBuilder({ deckId, initialDeck, newSetCount }: Props) {
   return (
     <BudgetProvider>
     <CollectionProvider>
+    <SuggestModeProvider value={!isOwner}>
     <div className="mx-auto max-w-6xl px-4 py-8">
       <div className="mb-2 flex flex-col items-start gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
           onBlur={saveName}
+          readOnly={!isOwner}
+          aria-label="Deck name"
           className="w-full max-w-md bg-transparent text-2xl font-semibold outline-none focus:border-b focus:border-black/20 dark:focus:border-white/20"
         />
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
-          <ShareControl deckId={deckId} isPublic={deck.public} onToggle={setPublic} />
-          <button
-            onClick={() => {
-              if (confirm(`Delete "${deck.name}"? This can't be undone.`)) deleteDeck();
-            }}
-            disabled={deleting}
-            className="rounded-md border border-black/15 px-3 py-1.5 text-xs text-black/60 hover:bg-black/5 disabled:opacity-40 dark:border-white/15 dark:text-white/60 dark:hover:bg-white/10"
-          >
-            {deleting ? "Deleting…" : "Delete deck"}
-          </button>
-        </div>
+        {isOwner && (
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <ShareControl deckId={deckId} isPublic={deck.public} onToggle={setPublic} />
+            <CollaboratorsControl deckId={deckId} />
+            <button
+              onClick={() => {
+                if (confirm(`Delete "${deck.name}"? This can't be undone.`)) deleteDeck();
+              }}
+              disabled={deleting}
+              className="rounded-md border border-black/15 px-3 py-1.5 text-xs text-black/60 hover:bg-black/5 disabled:opacity-40 dark:border-white/15 dark:text-white/60 dark:hover:bg-white/10"
+            >
+              {deleting ? "Deleting…" : "Delete deck"}
+            </button>
+          </div>
+        )}
       </div>
 
-      <input
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-        onBlur={saveDescription}
-        placeholder="Add a note about this deck's plan…"
-        className="mb-6 w-full max-w-md bg-transparent text-sm text-black/50 outline-none focus:border-b focus:border-black/20 dark:text-white/50 dark:focus:border-white/20"
-      />
+      {!isOwner && (
+        <p role="note" className="mb-4 rounded-md border border-[#2a78d6]/30 bg-[#2a78d6]/10 px-3 py-2 text-xs text-[#1c5aa8] dark:text-[#7db3f0]">
+          You&apos;re helping with {ownerName}&apos;s deck. Cards you add become <strong>suggestions</strong> in its Maybeboard, tagged with your name, and {ownerName} decides what goes in the
+          main deck. You can take back your own suggestions any time.
+        </p>
+      )}
+
+      {isOwner ? (
+        <input
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          onBlur={saveDescription}
+          placeholder="Add a note about this deck's plan…"
+          className="mb-6 w-full max-w-md bg-transparent text-sm text-black/50 outline-none focus:border-b focus:border-black/20 dark:text-white/50 dark:focus:border-white/20"
+        />
+      ) : (
+        description && <p className="mb-6 max-w-md text-sm text-black/50 dark:text-white/50">{description}</p>
+      )}
 
       <div className="mb-6">
         <ValidationBanner issues={validation.issues} />
@@ -193,12 +223,13 @@ export function DeckBuilder({ deckId, initialDeck, newSetCount }: Props) {
               onAdd={(card) => addCard(card, "commander")}
               onRemove={(scryfallId) => removeCard(scryfallId, "commander")}
               onChooseArt={(card) => setArtFor({ card, zone: "commander" })}
+              readOnly={!isOwner}
             />
           </section>
 
           <section>
             <div className="mb-2 flex flex-wrap gap-1 border-b border-black/10 dark:border-white/10">
-              {(["search", "keyword", "import", "export", "suggestions", "synergies", "combos", "salt", "simulate", "upgrades", "newcards", "lands", "playtest"] as Tab[]).map((t) => (
+              {(isOwner ? OWNER_TABS : FRIEND_TABS).map((t) => (
                 <button
                   key={t}
                   onClick={() => setTab(t)}
@@ -244,7 +275,7 @@ export function DeckBuilder({ deckId, initialDeck, newSetCount }: Props) {
 
           <section>
             <StatsPanel colorIdentity={validation.colorIdentity} analysis={analysis} powerLevel={powerLevel} priceTotal={priceTotal} expensive={expensive} />
-            <ToBuySummary deck={deck} />
+            {isOwner && <ToBuySummary deck={deck} />}
           </section>
         </div>
 
@@ -254,13 +285,15 @@ export function DeckBuilder({ deckId, initialDeck, newSetCount }: Props) {
               <h2 className="text-sm font-semibold">
                 Mainboard ({deck.mainboard.reduce((sum, e) => sum + e.quantity, 0)})
               </h2>
-              <button
-                onClick={autofillLands}
-                disabled={filling || deck.commanders.length === 0}
-                className="rounded-md border border-black/15 px-2 py-1 text-[11px] font-medium hover:bg-black/5 disabled:opacity-40 dark:border-white/15 dark:hover:bg-white/10"
-              >
-                {filling ? "Filling…" : "Fill remaining with basics"}
-              </button>
+              {isOwner && (
+                <button
+                  onClick={autofillLands}
+                  disabled={filling || deck.commanders.length === 0}
+                  className="rounded-md border border-black/15 px-2 py-1 text-[11px] font-medium hover:bg-black/5 disabled:opacity-40 dark:border-white/15 dark:hover:bg-white/10"
+                >
+                  {filling ? "Filling…" : "Fill remaining with basics"}
+                </button>
+              )}
             </div>
             <div className="mb-3">
               <SortControl sort={sort} onChange={setSort} />
@@ -269,6 +302,8 @@ export function DeckBuilder({ deckId, initialDeck, newSetCount }: Props) {
               entries={deck.mainboard}
               sort={sort}
               listName="Mainboard"
+              zone="mainboard"
+              viewer={{ role, id: viewer.id }}
               onQuantityChange={(id, qty) => setQuantity(id, "mainboard", qty)}
               onRemove={(id) => removeCard(id, "mainboard")}
               onMove={(id, newZone) => moveCard(id, "mainboard", newZone)}
@@ -287,6 +322,8 @@ export function DeckBuilder({ deckId, initialDeck, newSetCount }: Props) {
                 entries={deck.maybeboard}
                 sort={sort}
                 listName="Maybeboard"
+                zone="maybeboard"
+                viewer={{ role, id: viewer.id }}
                 onQuantityChange={(id, qty) => setQuantity(id, "maybeboard", qty)}
                 onRemove={(id) => removeCard(id, "maybeboard")}
                 onMove={(id, newZone) => moveCard(id, "maybeboard", newZone)}
@@ -305,7 +342,7 @@ export function DeckBuilder({ deckId, initialDeck, newSetCount }: Props) {
         </div>
       </div>
     </div>
-      {artFor && (
+      {isOwner && artFor && (
         <ArtPicker
           key={artFor.card.id}
           card={artFor.card}
@@ -316,6 +353,7 @@ export function DeckBuilder({ deckId, initialDeck, newSetCount }: Props) {
           onClose={() => setArtFor(null)}
         />
       )}
+    </SuggestModeProvider>
     </CollectionProvider>
     </BudgetProvider>
   );
