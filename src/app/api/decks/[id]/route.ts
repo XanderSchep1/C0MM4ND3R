@@ -2,10 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { getOwnedDeck, resolveDeck } from "@/lib/deck-data";
-import { validateCommanderDeck } from "@/lib/commander";
-import { analyzeDeck, calculatePriceTotal, estimatePowerLevel } from "@/lib/deck-analysis";
-import { analyzeAnnoyance } from "@/lib/annoyance";
-import { colorIdentityUnion } from "@/lib/card-helpers";
+import { computeDeckStats } from "@/lib/deck-stats";
 import { MAX_DECK_DESCRIPTION, MAX_DECK_NAME } from "@/lib/limits";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -17,15 +14,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   if (!deck) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const resolved = await resolveDeck(deck, { withMarks: true });
-  const validation = validateCommanderDeck(resolved.commanders, resolved.mainboard);
-  const colorIdentity = colorIdentityUnion(resolved.commanders.map((c) => c.card));
-  const analysis = analyzeDeck(resolved.mainboard, colorIdentity);
-  const ownedCards = [...resolved.commanders, ...resolved.mainboard];
-  const powerLevel = estimatePowerLevel(ownedCards);
-  const priceTotal = calculatePriceTotal(ownedCards);
-  const annoyance = analyzeAnnoyance(resolved.mainboard);
-
-  return NextResponse.json({ deck: resolved, validation, analysis, powerLevel, priceTotal, annoyance });
+  return NextResponse.json({ deck: resolved, ...computeDeckStats(resolved) });
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
