@@ -53,6 +53,7 @@ export function HoverPreview({
   as: Tag = "span",
   placement = "cursor",
   className,
+  id,
   children,
 }: {
   imageUri?: string;
@@ -61,6 +62,7 @@ export function HoverPreview({
   as?: ElementType;
   placement?: "cursor" | "beside";
   className?: string;
+  id?: string;
   children: ReactNode;
 }) {
   const [pos, setPos] = useState<Point | null>(null);
@@ -72,7 +74,7 @@ export function HoverPreview({
   }
 
   return (
-    <Tag className={className} onPointerEnter={track} onPointerMove={track} onPointerLeave={() => setPos(null)}>
+    <Tag id={id} className={className} onPointerEnter={track} onPointerMove={track} onPointerLeave={() => setPos(null)}>
       {children}
       {pos &&
         imageUri &&

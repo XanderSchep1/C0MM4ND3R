@@ -15,7 +15,12 @@ export function tileButtonClass(variant: "primary" | "secondary"): string {
     : `${base} border border-black/25 text-black/80 hover:bg-black/5 dark:border-white/30 dark:text-white/85 dark:hover:bg-white/10`;
 }
 
-export function CardTile({ card, actions }: { card: ScryfallCard; actions?: React.ReactNode }) {
+// `active` outlines the tile that pressing Enter would add (keyboard quick-add in the search box).
+export function cardTileId(cardId: string): string {
+  return `card-tile-${cardId}`;
+}
+
+export function CardTile({ card, actions, active = false }: { card: ScryfallCard; actions?: React.ReactNode; active?: boolean }) {
   const img = cardImageUrl(card, "small");
   const { unique, owned } = useCollection();
   const isOwned = unique > 0 && owned(card) > 0;
@@ -26,7 +31,10 @@ export function CardTile({ card, actions }: { card: ScryfallCard; actions?: Reac
       imageUri={cardImageUrl(card, "normal")}
       alt={card.name}
       price={formatPrice(card)}
-      className="flex flex-col overflow-hidden rounded-lg border border-black/10 bg-black/[0.02] dark:border-white/10 dark:bg-white/[0.02]"
+      id={cardTileId(card.id)}
+      className={`flex flex-col overflow-hidden rounded-lg border bg-black/[0.02] dark:bg-white/[0.02] ${
+        active ? "border-[#2a78d6] ring-2 ring-[#2a78d6]" : "border-black/10 dark:border-white/10"
+      }`}
     >
       <div className="aspect-[5/7] w-full bg-black/5 dark:bg-white/5">
         {img ? (

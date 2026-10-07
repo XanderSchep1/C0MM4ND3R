@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CommanderPanel } from "./commander-panel";
 import { ValidationBanner } from "./validation-banner";
@@ -20,93 +20,44 @@ import { PlaytestPanel } from "./playtest-panel";
 import { CollectionProvider, ToBuySummary } from "./collection";
 import { BudgetControl, BudgetProvider } from "./budget";
 import { mostExpensive } from "@/lib/card-helpers";
-import type { CardMark } from "@/lib/card-mark";
 import { ShareControl } from "./share-control";
 import { Decklist } from "./decklist";
-import type { ResolvedDeck, ValidationResult, DeckAnalysis, ScryfallCard, DeckZone, PowerLevelEstimate, PriceTotal, AnnoyanceReport } from "./types";
+import { useDeckEditor } from "./use-deck-editor";
+import type { ResolvedDeck } from "./types";
 
 interface Props {
   deckId: string;
   initialDeck: ResolvedDeck;
-  initialValidation: ValidationResult;
-  initialAnalysis: DeckAnalysis;
-  initialPowerLevel: PowerLevelEstimate;
-  initialPriceTotal: PriceTotal;
-  initialAnnoyance: AnnoyanceReport;
   newSetCount: number;
 }
 
 type Tab = "search" | "keyword" | "import" | "export" | "suggestions" | "synergies" | "combos" | "salt" | "simulate" | "upgrades" | "lands" | "playtest";
 
-export function DeckBuilder({ deckId, initialDeck, initialValidation, initialAnalysis, initialPowerLevel, initialPriceTotal, initialAnnoyance, newSetCount }: Props) {
+export function DeckBuilder({ deckId, initialDeck, newSetCount }: Props) {
   const router = useRouter();
-  const [deck, setDeck] = useState(initialDeck);
-  const [validation, setValidation] = useState(initialValidation);
-  const [analysis, setAnalysis] = useState(initialAnalysis);
-  const [powerLevel, setPowerLevel] = useState(initialPowerLevel);
-  const [priceTotal, setPriceTotal] = useState(initialPriceTotal);
-  const [annoyance, setAnnoyance] = useState(initialAnnoyance);
+  // Edits show up (and the stats update) the moment you click; the server is told in the background.
+  const { deck, stats, addCard, removeCard, setQuantity, moveCard, setMark, swapCard, setPublic, refresh } = useDeckEditor(deckId, initialDeck);
+  const { validation, analysis, powerLevel, priceTotal, annoyance } = stats;
   const [tab, setTab] = useState<Tab>("search");
+  const [searchFocus, setSearchFocus] = useState(0);
   const [name, setName] = useState(deck.name);
   const [description, setDescription] = useState(deck.description ?? "");
   const [deleting, setDeleting] = useState(false);
   const [filling, setFilling] = useState(false);
 
-  async function refresh() {
-    const res = await fetch(`/api/decks/${deckId}`);
-    if (!res.ok) return;
-    const data = await res.json();
-    setDeck(data.deck);
-    setValidation(data.validation);
-    setAnalysis(data.analysis);
-    setPowerLevel(data.powerLevel);
-    setPriceTotal(data.priceTotal);
-    setAnnoyance(data.annoyance);
-  }
-
-  async function addCard(scryfallId: string, zone: DeckZone, quantity = 1) {
-    await fetch(`/api/decks/${deckId}/cards`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ scryfallId, zone, quantity }),
-    });
-    await refresh();
-  }
-
-  async function removeCard(scryfallId: string, zone: DeckZone) {
-    await fetch(`/api/decks/${deckId}/cards?scryfallId=${encodeURIComponent(scryfallId)}&zone=${zone}`, { method: "DELETE" });
-    await refresh();
-  }
-
-  async function setQuantity(scryfallId: string, zone: DeckZone, quantity: number) {
-    await fetch(`/api/decks/${deckId}/cards`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ scryfallId, zone, quantity }),
-    });
-    await refresh();
-  }
-
-  async function moveCard(scryfallId: string, zone: DeckZone, newZone: DeckZone) {
-    await fetch(`/api/decks/${deckId}/cards`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ scryfallId, zone, newZone }),
-    });
-    await refresh();
-  }
-
-  // The highlight shows at once; the save happens in the background and the deck
-  // is reloaded only if it fails, so clicking through a list feels instant.
-  async function setMark(scryfallId: string, zone: "mainboard" | "maybeboard", mark: CardMark | null) {
-    setDeck((d) => ({ ...d, [zone]: d[zone].map((e) => (e.card.id === scryfallId ? { ...e, mark } : e)) }));
-    const res = await fetch(`/api/decks/${deckId}/cards`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ scryfallId, zone, mark }),
-    }).catch(() => null);
-    if (!res?.ok) await refresh();
-  }
+  // Press "/" anywhere (outside a text box) to jump to card search and start typing.
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== "/" || e.metaKey || e.ctrlKey || e.altKey) return;
+      const el = e.target as HTMLElement | null;
+      if (el && (el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName))) return;
+      e.preventDefault();
+      setTab("search");
+      setSearchFocus((n) => n + 1);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   async function handleImport(text: string, mode: "merge" | "replace") {
     const res = await fetch(`/api/decks/${deckId}/import`, {
@@ -157,15 +108,6 @@ export function DeckBuilder({ deckId, initialDeck, initialValidation, initialAna
     else setDeleting(false);
   }
 
-  async function togglePublic(next: boolean) {
-    await fetch(`/api/decks/${deckId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ public: next }),
-    });
-    await refresh();
-  }
-
   const expensive = mostExpensive([...deck.commanders, ...deck.mainboard]);
   const BUDGET_TABS: Tab[] = ["search", "keyword", "suggestions", "synergies", "salt", "simulate", "upgrades", "lands"];
 
@@ -181,7 +123,7 @@ export function DeckBuilder({ deckId, initialDeck, initialValidation, initialAna
           className="w-full max-w-md bg-transparent text-2xl font-semibold outline-none focus:border-b focus:border-black/20 dark:focus:border-white/20"
         />
         <div className="flex shrink-0 flex-wrap items-center gap-2">
-          <ShareControl deckId={deckId} isPublic={deck.public} onToggle={togglePublic} />
+          <ShareControl deckId={deckId} isPublic={deck.public} onToggle={setPublic} />
           <button
             onClick={() => {
               if (confirm(`Delete "${deck.name}"? This can't be undone.`)) deleteDeck();
@@ -213,8 +155,8 @@ export function DeckBuilder({ deckId, initialDeck, initialValidation, initialAna
             <CommanderPanel
               deckId={deckId}
               commanders={deck.commanders}
-              onAdd={(card: ScryfallCard) => addCard(card.id, "commander")}
-              onRemove={(scryfallId: string) => removeCard(scryfallId, "commander")}
+              onAdd={(card) => addCard(card, "commander")}
+              onRemove={(scryfallId) => removeCard(scryfallId, "commander")}
             />
           </section>
 
@@ -232,37 +174,32 @@ export function DeckBuilder({ deckId, initialDeck, initialValidation, initialAna
               ))}
             </div>
             {BUDGET_TABS.includes(tab) && <BudgetControl />}
-            {tab === "search" && <CardSearch deckId={deckId} mode="card" onAdd={(card, zone) => addCard(card.id, zone)} />}
-            {tab === "keyword" && <KeywordSearch deckId={deckId} onAdd={(card, zone) => addCard(card.id, zone)} />}
+            {tab === "search" && <CardSearch deckId={deckId} mode="card" focusSignal={searchFocus} onAdd={(card, zone) => addCard(card, zone)} />}
+            {tab === "keyword" && <KeywordSearch deckId={deckId} onAdd={(card, zone) => addCard(card, zone)} />}
             {tab === "import" && <ImportPanel onImport={handleImport} />}
             {tab === "export" && <ExportPanel deck={deck} />}
             {tab === "suggestions" && (
-              <SuggestionsPanel deckId={deckId} hasCommander={deck.commanders.length > 0} onAdd={(card) => addCard(card.id, "mainboard")} />
+              <SuggestionsPanel deckId={deckId} hasCommander={deck.commanders.length > 0} onAdd={(card) => addCard(card, "mainboard")} />
             )}
             {tab === "synergies" && (
-              <SynergiesPanel deckId={deckId} hasCommander={deck.commanders.length > 0} onAdd={(card, zone) => addCard(card.id, zone)} />
+              <SynergiesPanel deckId={deckId} hasCommander={deck.commanders.length > 0} onAdd={(card, zone) => addCard(card, zone)} />
             )}
             {tab === "combos" && (
               <CombosPanel deckId={deckId} hasCommander={deck.commanders.length > 0} onAdd={(scryfallId) => addCard(scryfallId, "mainboard")} />
             )}
-            {tab === "salt" && <SaltPanel deckId={deckId} report={annoyance} onAdd={(card, zone) => addCard(card.id, zone)} />}
+            {tab === "salt" && <SaltPanel deckId={deckId} report={annoyance} onAdd={(card, zone) => addCard(card, zone)} />}
             {tab === "upgrades" && (
               <UpgradesPanel
                 deckId={deckId}
                 hasCommander={deck.commanders.length > 0}
-                onAdd={(card, zone) => addCard(card.id, zone)}
-                onSwap={async (incoming, outgoing) => {
-                  await addCard(incoming.id, "mainboard");
-                  const outgoingEntry = deck.mainboard.find((e) => e.card.id === outgoing.id);
-                  if (outgoingEntry && outgoingEntry.quantity > 1) await setQuantity(outgoing.id, "mainboard", outgoingEntry.quantity - 1);
-                  else await removeCard(outgoing.id, "mainboard");
-                }}
+                onAdd={(card, zone) => addCard(card, zone)}
+                onSwap={(incoming, outgoing) => swapCard(incoming, outgoing)}
               />
             )}
             {tab === "lands" && <LandsPanel deckId={deckId} hasCommander={deck.commanders.length > 0} onChanged={refresh} />}
             {tab === "playtest" && <PlaytestPanel commanders={deck.commanders} mainboard={deck.mainboard} />}
             {tab === "simulate" && (
-              <SimulatePanel deckId={deckId} hasCommander={deck.commanders.length > 0} onAdd={(card, zone) => addCard(card.id, zone)} />
+              <SimulatePanel deckId={deckId} hasCommander={deck.commanders.length > 0} onAdd={(card, zone) => addCard(card, zone)} />
             )}
           </section>
 
@@ -292,7 +229,7 @@ export function DeckBuilder({ deckId, initialDeck, initialValidation, initialAna
               onRemove={(id) => removeCard(id, "mainboard")}
               onMove={(id, newZone) => moveCard(id, "mainboard", newZone)}
               onMark={(id, mark) => setMark(id, "mainboard", mark)}
-              moveTargets={[{ zone: "maybeboard", label: "→ Maybe" }]}
+              moveTargets={[{ zone: "maybeboard", label: "Move to Maybeboard" }]}
             />
           </section>
 
@@ -307,7 +244,7 @@ export function DeckBuilder({ deckId, initialDeck, initialValidation, initialAna
                 onRemove={(id) => removeCard(id, "maybeboard")}
                 onMove={(id, newZone) => moveCard(id, "maybeboard", newZone)}
                 onMark={(id, mark) => setMark(id, "maybeboard", mark)}
-                moveTargets={[{ zone: "mainboard", label: "→ Deck" }]}
+                moveTargets={[{ zone: "mainboard", label: "Move to Mainboard" }]}
               />
             </section>
           )}
