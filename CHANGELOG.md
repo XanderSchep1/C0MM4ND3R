@@ -2,6 +2,17 @@
 
 ## 2026-10-07
 
+### New
+- **Instant edits.** Adding, removing, changing a quantity, moving a card, highlighting and sharing now show on screen immediately, and the deck's stats (card count, price, power level, issues, colour balance) update at the same moment instead of after a reload. The change is saved in the background, in order; if the server rejects it, the screen puts things back and says why.
+- **Undo.** Removing a card (or dropping its quantity to zero), moving it between Mainboard and Maybeboard, and swapping in an upgrade each show a toast with **Undo**.
+- **Keyboard quick-add.** Press **/** anywhere on a deck to jump to card search. **Enter** adds the highlighted result to the Mainboard, **Shift+Enter** adds it to the Maybeboard, and **↑ / ↓** choose another result; pressing Enter before the results have loaded adds the first match as soon as they arrive. The search box stays open with its text selected, so you can type the next card straight away, and a "✓ Added" note confirms each one.
+- **Calmer card lines.** Each line is now a highlight button, − , + and a **⋯** menu (Move to Maybeboard / Mainboard, Remove from deck) instead of six buttons, so every card fits on one line even on a phone.
+- **Highlight the cards you own.** The highlight button on each Mainboard and Maybeboard line cycles **yellow** (I own this) → **red** (I don't have it yet) → none, tinting the whole line. A small legend above each list counts how many cards are marked each way. The highlights are saved with the deck, move with a card between Mainboard and Maybeboard, survive re-importing a list, and are private to you — shared deck pages don't show them. (When a card is highlighted, the automatic "Need" badge from your Collection is hidden for that line.)
+
+### Under the hood
+- **Nightly database backups.** A scheduled GitHub workflow makes a copy of the production database every night (kept for 6 days, then removed automatically by Neon), so there are six daily restore points on top of Neon's own 6 hours of history. Restore steps are in the README.
+- **Account clean-up script.** `scripts/delete-user.mjs` previews and then deletes an account with all its decks and cards; it won't touch an account that has a password unless told to.
+
 ### Security
 - **Accounts can no longer be taken over by signing up again.** Registering with an email that already exists is always refused, even if that account has no password. (Before, an old password-less account could be claimed by whoever registered its email first.)
 - **Limits on the busy endpoints.** Simulate, suggestions, synergies, upgrades, lands, combos, deck import, card search and autocomplete, adding cards, and creating decks are now rate limited per account (a clear "try again in N seconds" message is shown). This keeps one person — or a script — from flooding the app, the database or Scryfall.

@@ -35,11 +35,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   // would overflow the deck is rejected before anything is written.
   const rowKey = (scryfallId: string, zone: DeckZone) => `${scryfallId}|${zone}`;
   const rows = new Map<string, { scryfallId: string; name: string; zone: DeckZone; quantity: number }>();
-  if (mode === "merge") {
-    const existing = await prisma.deckCard.findMany({ where: { deckId: id } });
-    for (const row of existing) {
-      rows.set(rowKey(row.scryfallId, row.zone as DeckZone), { scryfallId: row.scryfallId, name: row.name, zone: row.zone as DeckZone, quantity: row.quantity });
-    }
+  const marks = new Map<string, string | null>();
+  const existing = await prisma.deckCard.findMany({ where: { deckId: id } });
+  for (const row of existing) {
+    const key = rowKey(row.scryfallId, row.zone as DeckZone);
+    marks.set(key, row.mark);
+    if (mode === "merge") rows.set(key, { scryfallId: row.scryfallId, name: row.name, zone: row.zone as DeckZone, quantity: row.quantity });
   }
 
   let added = 0;
@@ -65,7 +66,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       const row = rows.get(key)!;
       return prisma.deckCard.upsert({
         where: { deckId_scryfallId_zone: { deckId: id, scryfallId: row.scryfallId, zone: row.zone } },
-        create: { deckId: id, scryfallId: row.scryfallId, name: row.name, zone: row.zone, quantity: row.quantity },
+        create: { deckId: id, scryfallId: row.scryfallId, name: row.name, zone: row.zone, quantity: row.quantity, mark: marks.get(key) ?? null },
         update: { quantity: row.quantity },
       });
     }),

@@ -1,0 +1,35 @@
+name: Database backup
+
+# Every night, copies the production database to a new Neon branch named
+# backup-<timestamp> that Neon deletes by itself after 6 days (see
+# scripts/backup-neon.mjs and the "Backups" section of the README).
+#
+# Needs one repository secret, NEON_API_KEY. It runs only on a schedule or by hand,
+# never for pull requests, so the key is never exposed to code from a fork.
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: database-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    if: github.repository == 'XanderSchep1/C0MM4ND3R'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Create the backup branch
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: dark-sound-15869711
+        run: node scripts/backup-neon.mjs

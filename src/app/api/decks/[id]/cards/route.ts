@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getCardsByIds } from "@/lib/cards";
 import { limitRequest } from "@/lib/api-guard";
 import { clampQuantity, MAX_DECK_ROWS } from "@/lib/limits";
+import { parseMarkInput } from "@/lib/card-mark";
 
 type Zone = "commander" | "mainboard" | "maybeboard";
 const ZONES: Zone[] = ["commander", "mainboard", "maybeboard"];
@@ -63,6 +64,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   });
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  // Highlighting a line (yellow = owned, red = missing, null = clear) changes nothing else.
+  if ("mark" in body) {
+    const mark = parseMarkInput(body.mark);
+    if (mark === undefined) return NextResponse.json({ error: "mark must be \"owned\", \"missing\" or null" }, { status: 400 });
+    await prisma.deckCard.update({ where: { deckId_scryfallId_zone: { deckId: id, scryfallId, zone } }, data: { mark } });
+    return NextResponse.json({ ok: true });
+  }
+
   const newZone: Zone | undefined = ZONES.includes(body.newZone) ? body.newZone : undefined;
   const quantity = Number.isFinite(body.quantity) ? clampQuantity(body.quantity, 0) : existing.quantity;
 
@@ -74,7 +83,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       prisma.deckCard.delete({ where: { deckId_scryfallId_zone: { deckId: id, scryfallId, zone } } }),
       prisma.deckCard.upsert({
         where: targetKey,
-        create: { deckId: id, scryfallId, name: existing.name, zone: newZone, quantity: moved },
+        create: { deckId: id, scryfallId, name: existing.name, zone: newZone, quantity: moved, mark: existing.mark },
         update: { quantity: moved },
       }),
     ]);

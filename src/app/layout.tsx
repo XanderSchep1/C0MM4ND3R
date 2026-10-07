@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { headers } from "next/headers";
 import "./globals.css";
 import { SiteHeader } from "@/components/site-header";
+import { ToastProvider } from "@/components/toast";
 
 // Runs before hydration so the page never flashes the wrong theme: an
 // explicit choice from the toggle wins, otherwise fall back to the OS
@@ -47,8 +48,10 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             child — runs synchronously during HTML parsing, before anything
             paints, so the page never flashes the wrong theme. */}
         <script nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
-        <SiteHeader />
-        <main className="flex-1">{children}</main>
+        <ToastProvider>
+          <SiteHeader />
+          <main className="flex-1">{children}</main>
+        </ToastProvider>
       </body>
     </html>
   );
