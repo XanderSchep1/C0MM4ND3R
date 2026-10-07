@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { limitRequest } from "@/lib/api-guard";
-import { getOwnedDeck, resolveDeck } from "@/lib/deck-data";
+import { getDeckAccessWithCards } from "@/lib/deck-access";
+import { resolveDeck } from "@/lib/deck-data";
 import { colorIdentityUnion } from "@/lib/card-helpers";
 import { detectSynergySignals, suggestSynergies } from "@/lib/synergy";
 
@@ -12,8 +13,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   if (limited) return limited;
 
   const { id } = await params;
-  const deck = await getOwnedDeck(id, session.user.id);
-  if (!deck) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  // The owner and friends invited to the deck may both look at this: it only reads the deck.
+  const access = await getDeckAccessWithCards(id, session.user.id);
+  if (!access) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const deck = access.deck;
 
   const resolved = await resolveDeck(deck);
   if (resolved.commanders.length === 0) {

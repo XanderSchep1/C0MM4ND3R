@@ -70,3 +70,25 @@ export function buildExport(deck: DeckLike, format: ExportFormat): string {
       return buildDecklistText(deck);
   }
 }
+
+// ---- A plain list of cards (no deck sections), for a shopping list or a trade binder ----
+
+export type CardListFormat = "text" | "sets" | "csv";
+
+export const CARD_LIST_FORMATS: { value: CardListFormat; label: string; extension: string; hint: string }[] = [
+  { value: "text", label: "Plain text", extension: "txt", hint: "One \"1 Card Name\" per line: paste it into TCGplayer or Cardmarket mass entry, or most deckbuilders." },
+  { value: "sets", label: "With set codes", extension: "txt", hint: "Adds each card's set and collector number so the exact printing is picked." },
+  { value: "csv", label: "CSV spreadsheet", extension: "csv", hint: "Quantity, name, set, collector number and price." },
+];
+
+// The cards of one list (say, every card marked "missing"), alphabetically, in the chosen format.
+export function buildCardList(entries: DeckCardEntry[], format: CardListFormat): string {
+  const sorted = byName(entries);
+  if (sorted.length === 0) return "";
+  if (format === "sets") return sorted.map(withSet).join("\n") + "\n";
+  if (format === "csv") {
+    const rows = sorted.map((e) => [e.quantity, e.card.name, e.card.set.toUpperCase(), e.card.collector_number ?? "", e.card.prices?.usd ?? ""].map(csvCell).join(","));
+    return ["Quantity,Name,Set,Collector Number,Price USD", ...rows].join("\n") + "\n";
+  }
+  return sorted.map((e) => `${e.quantity} ${e.card.name}`).join("\n") + "\n";
+}

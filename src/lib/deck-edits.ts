@@ -32,12 +32,12 @@ export function rowCount(deck: EditableDeck): number {
 
 // Adds copies of a card (raising the quantity if it's already there). Returns null
 // when the deck is already at its limit of different cards.
-export function addToDeck<D extends EditableDeck>(deck: D, card: ScryfallCard, zone: EditZone, quantity = 1): D | null {
+export function addToDeck<D extends EditableDeck>(deck: D, card: ScryfallCard, zone: EditZone, quantity = 1, addedBy?: { id: string; name: string }): D | null {
   const list = deck[LIST[zone]];
   const existing = list.find((e) => e.card.id === card.id);
   if (!existing) {
     if (rowCount(deck) >= MAX_DECK_ROWS) return null;
-    return withList(deck, zone, [...list, { card, quantity: clampQuantity(quantity), mark: null }]);
+    return withList(deck, zone, [...list, { card, quantity: clampQuantity(quantity), mark: null, ...(addedBy ? { addedBy } : {}) }]);
   }
   return withList(deck, zone, list.map((e) => (e === existing ? { ...e, quantity: clampQuantity(e.quantity + quantity) } : e)));
 }
@@ -63,6 +63,23 @@ export function moveBetween<D extends EditableDeck>(deck: D, scryfallId: string,
     return withList(without, to, without[LIST[to]].map((e) => (e === target ? { ...e, quantity: clampQuantity(e.quantity + entry.quantity) } : e)));
   }
   return withList(without, to, [...without[LIST[to]], entry]);
+}
+
+// Points a line at another printing (different art) of the same card. If the deck already has that
+// printing in the zone, the two lines merge: quantities add (capped) and the existing line's mark stays.
+export function swapPrinting<D extends EditableDeck>(deck: D, oldId: string, zone: EditZone, next: ScryfallCard): D {
+  const entry = findEntry(deck, oldId, zone);
+  if (!entry || oldId === next.id) return deck;
+  const existing = findEntry(deck, next.id, zone);
+  const list = deck[LIST[zone]];
+  if (existing) {
+    return withList(
+      deck,
+      zone,
+      list.filter((e) => e !== entry).map((e) => (e === existing ? { ...e, quantity: clampQuantity(e.quantity + entry.quantity) } : e))
+    );
+  }
+  return withList(deck, zone, list.map((e) => (e === entry ? { ...e, card: next } : e)));
 }
 
 export function setMarkIn<D extends EditableDeck>(deck: D, scryfallId: string, zone: EditZone, mark: CardMark | null): D {
