@@ -3,6 +3,8 @@
 ## 2026-10-07
 
 ### Fixed
+- **A card you search for by name is never hidden by the Budget filter.** With "Up to $5 per card" on, searching the full name of a $5.19 card (e.g. Rhythm of the Wild) used to show nothing, which looked like the search had failed. A card whose full name you typed now always shows, and Enter adds exactly that card.
+- **The Budget filter now says when it hides results.** Search and Keyword show "N results are over your $5 budget and hidden" with a **Show them** button, instead of silently showing fewer cards or none.
 - **Search results squashed to just their art.** In some browsers (Safari) the card grid under Search and Keyword shrank every row to make the whole grid fit its height limit, so each card was cut off and its price and **Add** / **Maybe** buttons were hidden. Rows now keep the height of their cards, and the card no longer clips its own box.
 
 ### New
