@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { cardImageUrl, cardManaCost, formatPrice, primaryTypeCategory, sortByCategoryThenName } from "@/lib/card-helpers";
+import { cardImageUrl, cardManaCost, formatPrice } from "@/lib/card-helpers";
 import type { CardMark } from "@/lib/card-mark";
 import { nextMark } from "@/lib/deck-edits";
+import { groupAndSort, type SortState } from "@/lib/deck-sort";
 import { CardNameText, HoverPreview } from "./card-hover-name";
 import { ManaCost } from "./mana-cost";
 import { useCollection } from "./collection";
@@ -20,6 +21,7 @@ const SMALL_BUTTON = "h-6 w-6 rounded border border-black/15 text-xs hover:bg-bl
 
 interface Props {
   entries: DeckCardEntry[];
+  sort: SortState;
   onQuantityChange: (scryfallId: string, quantity: number) => void;
   onRemove: (scryfallId: string) => void;
   onMove: (scryfallId: string, newZone: DeckZone) => void;
@@ -133,19 +135,13 @@ function RowMenu({ name, items }: { name: string; items: { label: string; onSele
   );
 }
 
-export function Decklist({ entries, onQuantityChange, onRemove, onMove, onMark, moveTargets }: Props) {
+export function Decklist({ entries, sort, onQuantityChange, onRemove, onMove, onMark, moveTargets }: Props) {
   const { unique, owned } = useCollection();
   if (entries.length === 0) {
     return <p className="text-sm text-black/40 dark:text-white/40">No cards here yet.</p>;
   }
 
-  const sorted = sortByCategoryThenName(entries.map((e) => e.card));
-  const byId = new Map(entries.map((e) => [e.card.id, e]));
-  const groups = new Map<string, typeof sorted>();
-  for (const card of sorted) {
-    const cat = primaryTypeCategory(card);
-    groups.set(cat, [...(groups.get(cat) ?? []), card]);
-  }
+  const groups = groupAndSort(entries, sort);
 
   return (
     <div className="flex flex-col gap-4">
@@ -158,14 +154,16 @@ export function Decklist({ entries, onQuantityChange, onRemove, onMove, onMark, 
           </span>
         ))}
       </div>
-      {[...groups.entries()].map(([category, cards]) => (
-        <div key={category}>
-          <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-black/40 dark:text-white/40">
-            {category} ({cards.reduce((sum, c) => sum + (byId.get(c.id)?.quantity ?? 0), 0)})
-          </div>
+      {groups.map((group) => (
+        <div key={group.key}>
+          {group.label !== null && (
+            <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-black/40 dark:text-white/40">
+              {group.label} ({group.entries.reduce((sum, e) => sum + e.quantity, 0)})
+            </div>
+          )}
           <ul className="flex flex-col divide-y divide-black/5 dark:divide-white/5">
-            {cards.map((card) => {
-              const entry = byId.get(card.id)!;
+            {group.entries.map((entry) => {
+              const card = entry.card;
               const rowTint = MARKS.find((m) => m.mark === entry.mark)?.row;
               return (
                 <HoverPreview
