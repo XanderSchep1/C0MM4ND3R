@@ -24,11 +24,52 @@ model User {
   // scrypt hash of the one-time recovery code used to reset a forgotten
   // password (no email needed). Null until a code has been generated.
   recoveryCodeHash String?
+  // Random token in this person's "friend link". Whoever opens the link and accepts becomes their friend;
+  // making a new one cancels the old link. Null until they first open the Friends page.
+  friendCode String? @unique
 
   accounts Account[]
   sessions Session[]
   decks    Deck[]
   ownedCards OwnedCard[]
+  // Friendships are stored once per pair; see Friendship.
+  friendshipsA Friendship[] @relation("FriendshipA")
+  friendshipsB Friendship[] @relation("FriendshipB")
+  // Decks other people have invited this person to.
+  collaborations DeckCollaborator[]
+  // Cards this person suggested on someone else's deck.
+  suggestedCards DeckCard[] @relation("DeckCardAddedBy")
+}
+
+// Two people who are friends. One row per pair, with userAId always the smaller id, so the same
+// pair can never be stored twice.
+model Friendship {
+  id        String   @id @default(cuid())
+  userAId   String
+  userBId   String
+  createdAt DateTime @default(now())
+
+  userA User @relation("FriendshipA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB User @relation("FriendshipB", fields: [userBId], references: [id], onDelete: Cascade)
+
+  @@unique([userAId, userBId])
+  @@index([userBId])
+}
+
+// A friend the deck's owner invited to the deck. A "contributor" can see the deck and suggest cards
+// (they land in the Maybeboard); the owner decides what goes in the main deck.
+model DeckCollaborator {
+  id        String   @id @default(cuid())
+  deckId    String
+  userId    String
+  role      String   @default("contributor")
+  createdAt DateTime @default(now())
+
+  deck Deck @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([deckId, userId])
+  @@index([userId])
 }
 
 model Account {
@@ -101,6 +142,7 @@ model Deck {
 
   user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   cards DeckCard[]
+  collaborators DeckCollaborator[]
 }
 
 // zone: "commander" | "mainboard" | "maybeboard"
@@ -113,9 +155,13 @@ model DeckCard {
   zone       String   @default("mainboard")
   // The owner's own highlight for this line: "owned" (yellow), "missing" (red) or null.
   mark       String?
+  // Who suggested this card. Null for the deck owner's own cards. A friend's suggestion sits in the
+  // Maybeboard until the owner accepts it (which clears this) or dismisses it.
+  addedById  String?
   addedAt    DateTime @default(now())
 
-  deck Deck @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  deck    Deck  @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  addedBy User? @relation("DeckCardAddedBy", fields: [addedById], references: [id], onDelete: SetNull)
 
   @@unique([deckId, scryfallId, zone])
   @@index([deckId])

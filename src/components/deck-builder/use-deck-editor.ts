@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "@/components/toast";
+import type { DeckRole } from "@/lib/deck-access";
 import type { CardMark } from "@/lib/card-mark";
 import { addToDeck, findEntry, moveBetween, removeFrom, setMarkIn, setQuantityIn, swapPrinting, type EditZone } from "@/lib/deck-edits";
 import { computeDeckStats } from "@/lib/deck-stats";
@@ -15,7 +16,15 @@ const ZONE_LABEL: Record<EditZone, string> = { commander: "Commander", mainboard
 // Owns the deck on the page. Every edit changes the screen (and the stats) at once, then
 // quietly tells the server; see DeckSync for how the two are kept in step. Removing or moving
 // a card offers Undo.
-export function useDeckEditor(deckId: string, initialDeck: ResolvedDeck) {
+// A friend invited to the deck (a "contributor") can only suggest cards, which go to the Maybeboard tagged with
+// their name. The server enforces that too; this just makes the screen match.
+export interface DeckViewer {
+  role: DeckRole;
+  id: string;
+  name: string;
+}
+
+export function useDeckEditor(deckId: string, initialDeck: ResolvedDeck, viewer: DeckViewer) {
   const { show } = useToast();
   const showRef = useRef(show);
   useEffect(() => {
@@ -44,7 +53,17 @@ export function useDeckEditor(deckId: string, initialDeck: ResolvedDeck) {
       onError: (message) => showRef.current({ message, tone: "error" }),
     });
     syncRef.current = sync;
+
+    // A friend may have suggested cards while this tab sat in the background: look again when you come back to it.
+    const lookAgain = () => {
+      if (document.visibilityState === "visible") sync.reconcileSoon(true);
+    };
+    window.addEventListener("focus", lookAgain);
+    document.addEventListener("visibilitychange", lookAgain);
+
     return () => {
+      window.removeEventListener("focus", lookAgain);
+      document.removeEventListener("visibilitychange", lookAgain);
       sync.dispose();
       if (syncRef.current === sync) syncRef.current = null;
     };
@@ -82,14 +101,26 @@ export function useDeckEditor(deckId: string, initialDeck: ResolvedDeck) {
   // Pass the full card for an instant update; a bare id (all some panels have) waits for the server.
   // `announce` shows an "Added … · Undo" toast, so an add is visible wherever the page is scrolled.
   const addCard = useCallback(
-    async (card: ScryfallCard | string, zone: EditZone, quantity = 1, options: { announce?: boolean } = {}) => {
+    async (card: ScryfallCard | string, requestedZone: EditZone, requestedQuantity = 1, options: { announce?: boolean } = {}) => {
+      const suggesting = viewer.role === "contributor";
+      const zone: EditZone = suggesting ? "maybeboard" : requestedZone;
+      const quantity = suggesting ? 1 : requestedQuantity;
       if (typeof card === "string") {
         send(json("POST", cardsUrl, { scryfallId: card, zone, quantity }), "Couldn't add that card.");
         await syncRef.current?.refresh();
         return;
       }
       const hadBefore = findEntry(deckRef.current, card.id, zone)?.quantity ?? 0;
-      if (!apply((d) => addToDeck(d, card, zone, quantity))) {
+      if (suggesting) {
+        // A suggestion is for a card the deck doesn't have yet, in any printing or part of the deck.
+        const d = deckRef.current;
+        const has = [...d.commanders, ...d.mainboard, ...d.maybeboard].some((e) => e.card.name === card.name);
+        if (has) {
+          showRef.current({ message: `${card.name} is already in this deck.`, tone: "error", durationMs: 4000 });
+          return;
+        }
+      }
+      if (!apply((d) => addToDeck(d, card, zone, quantity, suggesting ? { id: viewer.id, name: viewer.name } : undefined))) {
         showRef.current({ message: `A deck can hold at most ${MAX_DECK_ROWS} different cards.`, tone: "error" });
         return;
       }
@@ -97,7 +128,7 @@ export function useDeckEditor(deckId: string, initialDeck: ResolvedDeck) {
       if (options.announce) {
         showRef.current({
           key: "added",
-          message: `Added ${card.name} to the ${ZONE_LABEL[zone]}`,
+          message: suggesting ? `Suggested ${card.name} for the Maybeboard` : `Added ${card.name} to the ${ZONE_LABEL[zone]}`,
           actionLabel: "Undo",
           durationMs: 4000,
           // Back to how many copies there were before (none, if it was new).
@@ -105,7 +136,7 @@ export function useDeckEditor(deckId: string, initialDeck: ResolvedDeck) {
         });
       }
     },
-    [apply, send, json, cardsUrl]
+    [apply, send, json, cardsUrl, viewer.role, viewer.id, viewer.name]
   );
 
   const restoreCard = useCallback(

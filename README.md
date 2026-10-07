@@ -131,6 +131,12 @@ builds each push and pull request. Work on a branch, open a pull request, and me
 - **API**: every route checks the session first and scopes deck lookups to the signed-in user. `src/app/api/routes.test.ts` discovers
   every route file and fails if one answers an anonymous request or looks up a deck without the owner filter — a new endpoint is
   covered automatically. Heavier endpoints use `limitRequest` from `src/lib/api-guard.ts`; size caps live in `src/lib/limits.ts`.
+- **Friends and shared decks**: a friend is invited per deck (`DeckCollaborator`) and can only *suggest* — `src/lib/deck-access.ts` gives
+  each request a role (`owner` / `contributor`; strangers get a 404), and `src/app/api/decks/[id]/cards/route.ts` confines a
+  contributor to adding, changing and removing their own Maybeboard rows (`DeckCard.addedById`). Highlights, art, moves, imports,
+  sharing and every other deck route stay owner-only. Friendships are made through an unguessable invite link
+  (`src/lib/friends.ts`), never by looking up an email. The route test requires every per-deck route to reach decks through the
+  owner-or-collaborator filter.
 - **Headers**: `src/proxy.ts` sets a nonce-based Content-Security-Policy per request (so every page renders on demand), and
   `next.config.ts` adds the static headers. A new external image host, script or font has to be added to `buildCsp` or the browser
   will block it.
@@ -171,4 +177,5 @@ scraping, just Scryfall's own documented search API.
 - `src/lib/combos.ts` — Commander Spellbook client + combo-opportunity matching
 - `src/lib/annoyance.ts` — the heuristic annoyance/"salt" classifier
 - `src/lib/land-fill.ts` — basic land auto-fill ratio calculation
+- `src/lib/deck-access.ts` / `src/lib/friends.ts` — who may do what on a deck, and how friends are made
 - `src/app/decks/[id]` — the deck builder page and its API routes

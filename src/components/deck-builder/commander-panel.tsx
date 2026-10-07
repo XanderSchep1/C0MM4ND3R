@@ -12,9 +12,11 @@ interface Props {
   onAdd: (card: ScryfallCard) => void | Promise<void>;
   onRemove: (scryfallId: string) => void | Promise<void>;
   onChooseArt: (card: ScryfallCard) => void;
+  // A friend invited to the deck sees the commander but can't change it.
+  readOnly?: boolean;
 }
 
-export function CommanderPanel({ deckId, commanders, onAdd, onRemove, onChooseArt }: Props) {
+export function CommanderPanel({ deckId, commanders, onAdd, onRemove, onChooseArt, readOnly = false }: Props) {
   const [searching, setSearching] = useState(false);
 
   return (
@@ -30,16 +32,20 @@ export function CommanderPanel({ deckId, commanders, onAdd, onRemove, onChooseAr
                   <img src={img} alt={card.name} className="w-full" />
                 )}
               </div>
-              <button onClick={() => onChooseArt(card)} className={tileButtonClass("secondary")}>
-                Choose art
-              </button>
-              <button onClick={() => onRemove(card.id)} className={tileButtonClass("secondary")}>
-                Remove
-              </button>
+              {!readOnly && (
+                <>
+                  <button onClick={() => onChooseArt(card)} className={tileButtonClass("secondary")}>
+                    Choose art
+                  </button>
+                  <button onClick={() => onRemove(card.id)} className={tileButtonClass("secondary")}>
+                    Remove
+                  </button>
+                </>
+              )}
             </div>
           );
         })}
-        {commanders.length < 2 && (
+        {!readOnly && commanders.length < 2 && (
           <button
             onClick={() => setSearching((s) => !s)}
             className="flex w-32 shrink-0 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-black/20 text-xs text-black/50 hover:border-black/40 dark:border-white/20 dark:text-white/50 dark:hover:border-white/40"

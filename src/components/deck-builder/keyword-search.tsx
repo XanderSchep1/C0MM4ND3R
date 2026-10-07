@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { buildKeywordClause } from "@/lib/search-query";
+import { useSuggesting } from "./suggest-mode";
 import { CardTile, TILE_GRID_CLASS, tileButtonClass } from "./card-tile";
 import { OverBudgetNote, useBudget } from "./budget";
 import { splitByBudget } from "@/lib/budget-filter";
@@ -17,6 +18,7 @@ interface Props {
 // or phrase, then presenting matches as a suggested-adds list rather than a
 // quick single-card lookup.
 export function KeywordSearch({ deckId, onAdd }: Props) {
+  const suggesting = useSuggesting();
   const { inBudget } = useBudget();
   const inputRef = useRef<HTMLInputElement>(null);
   const [term, setTerm] = useState("");
@@ -99,15 +101,17 @@ export function KeywordSearch({ deckId, onAdd }: Props) {
                       disabled={addingId === card.id + "mainboard"}
                       className={tileButtonClass("primary")}
                     >
-                      Add
+                      {suggesting ? "Suggest" : "Add"}
                     </button>
-                    <button
-                      onClick={() => handleAdd(card, "maybeboard")}
-                      disabled={addingId === card.id + "maybeboard"}
-                      className={tileButtonClass("secondary")}
-                    >
-                      Maybe
-                    </button>
+                    {!suggesting && (
+                      <button
+                        onClick={() => handleAdd(card, "maybeboard")}
+                        disabled={addingId === card.id + "maybeboard"}
+                        className={tileButtonClass("secondary")}
+                      >
+                        Maybe
+                      </button>
+                    )}
                   </>
                 }
               />

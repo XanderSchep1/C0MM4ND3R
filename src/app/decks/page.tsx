@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { NewDeckForm } from "@/components/new-deck-form";
 import { getRecentSets } from "@/lib/sets";
+import { personName } from "@/lib/deck-access";
 
 export default async function DecksPage() {
   const session = await auth();
@@ -13,6 +14,13 @@ export default async function DecksPage() {
     where: { userId: session.user.id },
     orderBy: { updatedAt: "desc" },
     include: { _count: { select: { cards: true } } },
+  });
+
+  // Decks friends have invited you to (you can see them and suggest cards).
+  const shared = await prisma.deck.findMany({
+    where: { collaborators: { some: { userId: session.user.id } } },
+    orderBy: { updatedAt: "desc" },
+    include: { user: { select: { name: true, email: true } }, _count: { select: { cards: true } } },
   });
 
   const recentSets = await getRecentSets().catch(() => []);
@@ -47,6 +55,30 @@ export default async function DecksPage() {
             </li>
           ))}
         </ul>
+      )}
+
+      {shared.length > 0 && (
+        <section aria-labelledby="shared-heading" className="mt-12">
+          <h2 id="shared-heading" className="text-lg font-semibold">
+            Shared with me
+          </h2>
+          <p className="mt-1 text-xs text-black/50 dark:text-white/50">Friends invited you to these decks. You can look around and suggest cards; the owner decides what goes in.</p>
+          <ul className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {shared.map((deck) => (
+              <li key={deck.id}>
+                <Link
+                  href={`/decks/${deck.id}`}
+                  className="block rounded-lg border border-black/10 p-4 transition hover:border-black/30 dark:border-white/10 dark:hover:border-white/30"
+                >
+                  <div className="font-medium">{deck.name}</div>
+                  <div className="mt-1 text-xs text-black/50 dark:text-white/50">
+                    {deck._count.cards} cards · by {personName(deck.user)}
+                  </div>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
     </div>
   );

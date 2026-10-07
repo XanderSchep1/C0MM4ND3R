@@ -32,12 +32,12 @@ export function rowCount(deck: EditableDeck): number {
 
 // Adds copies of a card (raising the quantity if it's already there). Returns null
 // when the deck is already at its limit of different cards.
-export function addToDeck<D extends EditableDeck>(deck: D, card: ScryfallCard, zone: EditZone, quantity = 1): D | null {
+export function addToDeck<D extends EditableDeck>(deck: D, card: ScryfallCard, zone: EditZone, quantity = 1, addedBy?: { id: string; name: string }): D | null {
   const list = deck[LIST[zone]];
   const existing = list.find((e) => e.card.id === card.id);
   if (!existing) {
     if (rowCount(deck) >= MAX_DECK_ROWS) return null;
-    return withList(deck, zone, [...list, { card, quantity: clampQuantity(quantity), mark: null }]);
+    return withList(deck, zone, [...list, { card, quantity: clampQuantity(quantity), mark: null, ...(addedBy ? { addedBy } : {}) }]);
   }
   return withList(deck, zone, list.map((e) => (e === existing ? { ...e, quantity: clampQuantity(e.quantity + quantity) } : e)));
 }
