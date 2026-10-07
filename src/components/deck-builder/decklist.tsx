@@ -9,7 +9,7 @@ import { CardNameText, HoverPreview } from "./card-hover-name";
 import { MarkedListPanel } from "./marked-list-panel";
 import { ManaCost } from "./mana-cost";
 import { useCollection } from "./collection";
-import type { DeckCardEntry, DeckZone } from "./types";
+import type { DeckCardEntry, DeckZone, ScryfallCard } from "./types";
 
 // Yellow = "I own this card", red = "I don't have it yet". Colours are fixed so the
 // row tint, the button and the legend always match.
@@ -29,6 +29,7 @@ interface Props {
   onRemove: (scryfallId: string) => void;
   onMove: (scryfallId: string, newZone: DeckZone) => void;
   onMark: (scryfallId: string, mark: CardMark | null) => void;
+  onChooseArt: (card: ScryfallCard) => void;
   moveTargets: { zone: DeckZone; label: string }[];
 }
 
@@ -138,7 +139,7 @@ function RowMenu({ name, items }: { name: string; items: { label: string; onSele
   );
 }
 
-export function Decklist({ entries, sort, listName, onQuantityChange, onRemove, onMove, onMark, moveTargets }: Props) {
+export function Decklist({ entries, sort, listName, onQuantityChange, onRemove, onMove, onMark, onChooseArt, moveTargets }: Props) {
   const { unique, owned } = useCollection();
   // Which highlighted list (owned / missing) is open for copying, if any.
   const [openList, setOpenList] = useState<CardMark | null>(null);
@@ -226,7 +227,11 @@ export function Decklist({ entries, sort, listName, onQuantityChange, onRemove, 
                     </button>
                     <RowMenu
                       name={card.name}
-                      items={[...moveTargets.map((t) => ({ label: t.label, onSelect: () => onMove(card.id, t.zone) })), { label: "Remove from deck", onSelect: () => onRemove(card.id) }]}
+                      items={[
+                        { label: "Choose art…", onSelect: () => onChooseArt(card) },
+                        ...moveTargets.map((t) => ({ label: t.label, onSelect: () => onMove(card.id, t.zone) })),
+                        { label: "Remove from deck", onSelect: () => onRemove(card.id) },
+                      ]}
                     />
                   </div>
                 </HoverPreview>

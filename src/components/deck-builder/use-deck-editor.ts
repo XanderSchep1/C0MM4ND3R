@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "@/components/toast";
 import type { CardMark } from "@/lib/card-mark";
-import { addToDeck, findEntry, moveBetween, removeFrom, setMarkIn, setQuantityIn, type EditZone } from "@/lib/deck-edits";
+import { addToDeck, findEntry, moveBetween, removeFrom, setMarkIn, setQuantityIn, swapPrinting, type EditZone } from "@/lib/deck-edits";
 import { computeDeckStats } from "@/lib/deck-stats";
 import { DeckSync } from "@/lib/deck-sync";
 import { MAX_DECK_ROWS } from "@/lib/limits";
+import { printingLabel } from "@/lib/printings";
 import type { ResolvedDeck, ScryfallCard } from "./types";
 
 const ZONE_LABEL: Record<EditZone, string> = { commander: "Commander", mainboard: "Mainboard", maybeboard: "Maybeboard" };
@@ -171,6 +172,34 @@ export function useDeckEditor(deckId: string, initialDeck: ResolvedDeck) {
     [performMove]
   );
 
+  // Switches a line to another printing (different art) of the same card.
+  const performPrintingChange = useCallback(
+    (scryfallId: string, zone: EditZone, next: ScryfallCard) => {
+      const entry = findEntry(deckRef.current, scryfallId, zone);
+      if (!entry || entry.card.id === next.id) return null;
+      const merged = Boolean(findEntry(deckRef.current, next.id, zone));
+      apply((d) => swapPrinting(d, scryfallId, zone, next));
+      send(json("PATCH", cardsUrl, { scryfallId, zone, printingId: next.id }), `Couldn't change the art for ${entry.card.name}.`);
+      return { previous: entry.card, merged };
+    },
+    [apply, send, json, cardsUrl]
+  );
+
+  const changePrinting = useCallback(
+    (scryfallId: string, zone: EditZone, next: ScryfallCard) => {
+      const changed = performPrintingChange(scryfallId, zone, next);
+      // Undoing a change that merged two lines couldn't split them apart again, so no Undo then.
+      if (!changed || changed.merged) return;
+      showRef.current({
+        key: "art",
+        message: `Changed the art of ${next.name} to ${printingLabel(next)}`,
+        actionLabel: "Undo",
+        onAction: () => performPrintingChange(next.id, zone, changed.previous),
+      });
+    },
+    [performPrintingChange]
+  );
+
   // Adds `incoming` and takes one copy of `outgoing` out (used by Upgrades).
   const swapCard = useCallback(
     async (incoming: ScryfallCard, outgoing: ScryfallCard) => {
@@ -203,5 +232,5 @@ export function useDeckEditor(deckId: string, initialDeck: ResolvedDeck) {
     await syncRef.current?.refresh();
   }, []);
 
-  return { deck, stats, addCard, removeCard, setQuantity, moveCard, setMark, swapCard, setPublic, refresh };
+  return { deck, stats, addCard, removeCard, setQuantity, moveCard, setMark, changePrinting, swapCard, setPublic, refresh };
 }

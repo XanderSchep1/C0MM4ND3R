@@ -11,9 +11,10 @@ interface Props {
   commanders: DeckCardEntry[];
   onAdd: (card: ScryfallCard) => void | Promise<void>;
   onRemove: (scryfallId: string) => void | Promise<void>;
+  onChooseArt: (card: ScryfallCard) => void;
 }
 
-export function CommanderPanel({ deckId, commanders, onAdd, onRemove }: Props) {
+export function CommanderPanel({ deckId, commanders, onAdd, onRemove, onChooseArt }: Props) {
   const [searching, setSearching] = useState(false);
 
   return (
@@ -29,6 +30,9 @@ export function CommanderPanel({ deckId, commanders, onAdd, onRemove }: Props) {
                   <img src={img} alt={card.name} className="w-full" />
                 )}
               </div>
+              <button onClick={() => onChooseArt(card)} className={tileButtonClass("secondary")}>
+                Choose art
+              </button>
               <button onClick={() => onRemove(card.id)} className={tileButtonClass("secondary")}>
                 Remove
               </button>

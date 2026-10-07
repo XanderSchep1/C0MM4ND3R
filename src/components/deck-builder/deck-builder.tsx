@@ -24,6 +24,7 @@ import { mostExpensive } from "@/lib/card-helpers";
 import { ShareControl } from "./share-control";
 import { Decklist } from "./decklist";
 import { SortControl } from "./sort-control";
+import { ArtPicker } from "./art-picker";
 import { DEFAULT_SORT, parseSort, type SortState } from "@/lib/deck-sort";
 import { useDeckEditor } from "./use-deck-editor";
 import type { DeckZone, ResolvedDeck, ScryfallCard } from "./types";
@@ -44,12 +45,14 @@ const TAB_LABELS: Partial<Record<Tab, string>> = { newcards: "New cards" };
 export function DeckBuilder({ deckId, initialDeck, newSetCount }: Props) {
   const router = useRouter();
   // Edits show up (and the stats update) the moment you click; the server is told in the background.
-  const { deck, stats, addCard, removeCard, setQuantity, moveCard, setMark, swapCard, setPublic, refresh } = useDeckEditor(deckId, initialDeck);
+  const { deck, stats, addCard, removeCard, setQuantity, moveCard, setMark, changePrinting, swapCard, setPublic, refresh } = useDeckEditor(deckId, initialDeck);
   const { validation, analysis, powerLevel, priceTotal, annoyance } = stats;
   // Adds from the search and suggestion tabs say so ("Added … · Undo"), so it shows wherever the page is scrolled.
   const addAnnounced = (card: ScryfallCard, zone: DeckZone) => addCard(card, zone, 1, { announce: true });
   const [tab, setTab] = useState<Tab>("search");
   const [searchFocus, setSearchFocus] = useState(0);
+  // The card whose art is being chosen, and which part of the deck it's in.
+  const [artFor, setArtFor] = useState<{ card: ScryfallCard; zone: DeckZone } | null>(null);
   const [sort, setSortState] = useState<SortState>(DEFAULT_SORT);
 
   // The chosen sort is remembered in this browser (restored after mount, so it can't mismatch the server HTML).
@@ -189,6 +192,7 @@ export function DeckBuilder({ deckId, initialDeck, newSetCount }: Props) {
               commanders={deck.commanders}
               onAdd={(card) => addCard(card, "commander")}
               onRemove={(scryfallId) => removeCard(scryfallId, "commander")}
+              onChooseArt={(card) => setArtFor({ card, zone: "commander" })}
             />
           </section>
 
@@ -269,6 +273,7 @@ export function DeckBuilder({ deckId, initialDeck, newSetCount }: Props) {
               onRemove={(id) => removeCard(id, "mainboard")}
               onMove={(id, newZone) => moveCard(id, "mainboard", newZone)}
               onMark={(id, mark) => setMark(id, "mainboard", mark)}
+              onChooseArt={(card) => setArtFor({ card, zone: "mainboard" })}
               moveTargets={[{ zone: "maybeboard", label: "Move to Maybeboard" }]}
             />
           </section>
@@ -286,6 +291,7 @@ export function DeckBuilder({ deckId, initialDeck, newSetCount }: Props) {
                 onRemove={(id) => removeCard(id, "maybeboard")}
                 onMove={(id, newZone) => moveCard(id, "maybeboard", newZone)}
                 onMark={(id, mark) => setMark(id, "maybeboard", mark)}
+                onChooseArt={(card) => setArtFor({ card, zone: "maybeboard" })}
                 moveTargets={[{ zone: "mainboard", label: "Move to Mainboard" }]}
               />
             </section>
@@ -299,6 +305,17 @@ export function DeckBuilder({ deckId, initialDeck, newSetCount }: Props) {
         </div>
       </div>
     </div>
+      {artFor && (
+        <ArtPicker
+          key={artFor.card.id}
+          card={artFor.card}
+          onPick={(printing) => {
+            changePrinting(artFor.card.id, artFor.zone, printing);
+            setArtFor(null);
+          }}
+          onClose={() => setArtFor(null)}
+        />
+      )}
     </CollectionProvider>
     </BudgetProvider>
   );

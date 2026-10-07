@@ -12,6 +12,7 @@ export const API_LIMITS = {
   lands: { limit: 40, windowSeconds: 60 },
   combos: { limit: 30, windowSeconds: 60 },
   replacements: { limit: 10, windowSeconds: 60 },
+  printings: { limit: 40, windowSeconds: 60 },
   search: { limit: 90, windowSeconds: 60 },
   autocomplete: { limit: 150, windowSeconds: 60 },
   addCard: { limit: 150, windowSeconds: 60 },

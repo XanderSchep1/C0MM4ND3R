@@ -8,10 +8,11 @@ const mocks = vi.hoisted(() => ({
   cardUpsert: vi.fn(),
   cardDelete: vi.fn(),
   transaction: vi.fn(),
+  getCardsByIds: vi.fn(),
 }));
 
 vi.mock("@/auth", () => ({ auth: mocks.auth }));
-vi.mock("@/lib/cards", () => ({ getCardsByIds: async () => new Map() }));
+vi.mock("@/lib/cards", () => ({ getCardsByIds: mocks.getCardsByIds }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     deck: { findFirst: mocks.deckFindFirst },
@@ -37,6 +38,7 @@ describe("PATCH /api/decks/[id]/cards — highlight marks", () => {
     mocks.deckFindFirst.mockResolvedValue({ id: "deck-1", userId: "user-1" });
     mocks.cardFindUnique.mockResolvedValue({ name: "Sol Ring", quantity: 2, zone: "mainboard", mark: null });
     mocks.transaction.mockResolvedValue([]);
+    mocks.getCardsByIds.mockResolvedValue(new Map());
   });
 
   it("sets a mark without touching quantity or zone", async () => {
@@ -74,5 +76,48 @@ describe("PATCH /api/decks/[id]/cards — highlight marks", () => {
     const res = await patch({ scryfallId: "card-1", zone: "mainboard", newZone: "maybeboard" });
     expect(res.status).toBe(200);
     expect(mocks.cardUpsert).toHaveBeenCalledWith(expect.objectContaining({ create: expect.objectContaining({ zone: "maybeboard", mark: "missing" }) }));
+  });
+
+  describe("choosing art (printingId)", () => {
+    const cardsFor = (current: object, next: object | null) => new Map<string, object>([["card-1", current], ...(next ? ([["card-2", next]] as [string, object][]) : [])]);
+    const sol = (id: string, oracle = "oracle-sol") => ({ id, name: "Sol Ring", oracle_id: oracle });
+
+    it("points the line at another printing of the same card", async () => {
+      mocks.getCardsByIds.mockResolvedValue(cardsFor(sol("card-1"), sol("card-2")));
+      mocks.cardFindUnique.mockResolvedValueOnce({ name: "Sol Ring", quantity: 1, zone: "mainboard", mark: null }).mockResolvedValueOnce(null);
+      const res = await patch({ scryfallId: "card-1", zone: "mainboard", printingId: "card-2" });
+      expect(res.status).toBe(200);
+      expect(mocks.cardUpdate).toHaveBeenCalledWith({ where: key("mainboard"), data: { scryfallId: "card-2" } });
+    });
+
+    it("folds into the line that already uses that printing", async () => {
+      mocks.getCardsByIds.mockResolvedValue(cardsFor(sol("card-1"), sol("card-2")));
+      mocks.cardFindUnique.mockResolvedValueOnce({ name: "Sol Ring", quantity: 2, zone: "mainboard", mark: null }).mockResolvedValueOnce({ quantity: 1, mark: "owned" });
+      const res = await patch({ scryfallId: "card-1", zone: "mainboard", printingId: "card-2" });
+      expect(res.status).toBe(200);
+      expect(mocks.transaction).toHaveBeenCalledOnce();
+      expect(mocks.cardUpdate).toHaveBeenCalledWith({ where: { deckId_scryfallId_zone: { deckId: "deck-1", scryfallId: "card-2", zone: "mainboard" } }, data: { quantity: 3 } });
+    });
+
+    it("refuses a printing of a different card", async () => {
+      mocks.getCardsByIds.mockResolvedValue(cardsFor(sol("card-1"), sol("card-2", "oracle-other")));
+      const res = await patch({ scryfallId: "card-1", zone: "mainboard", printingId: "card-2" });
+      expect(res.status).toBe(400);
+      expect(mocks.cardUpdate).not.toHaveBeenCalled();
+      expect(mocks.transaction).not.toHaveBeenCalled();
+    });
+
+    it("refuses a printing that doesn't exist, or a missing id", async () => {
+      mocks.getCardsByIds.mockResolvedValue(cardsFor(sol("card-1"), null));
+      expect((await patch({ scryfallId: "card-1", zone: "mainboard", printingId: "card-2" })).status).toBe(400);
+      expect((await patch({ scryfallId: "card-1", zone: "mainboard", printingId: "" })).status).toBe(400);
+      expect(mocks.cardUpdate).not.toHaveBeenCalled();
+    });
+
+    it("does nothing when the printing is already the one in the deck", async () => {
+      const res = await patch({ scryfallId: "card-1", zone: "mainboard", printingId: "card-1" });
+      expect(res.status).toBe(200);
+      expect(mocks.cardUpdate).not.toHaveBeenCalled();
+    });
   });
 });

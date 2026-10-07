@@ -65,6 +65,23 @@ export function moveBetween<D extends EditableDeck>(deck: D, scryfallId: string,
   return withList(without, to, [...without[LIST[to]], entry]);
 }
 
+// Points a line at another printing (different art) of the same card. If the deck already has that
+// printing in the zone, the two lines merge: quantities add (capped) and the existing line's mark stays.
+export function swapPrinting<D extends EditableDeck>(deck: D, oldId: string, zone: EditZone, next: ScryfallCard): D {
+  const entry = findEntry(deck, oldId, zone);
+  if (!entry || oldId === next.id) return deck;
+  const existing = findEntry(deck, next.id, zone);
+  const list = deck[LIST[zone]];
+  if (existing) {
+    return withList(
+      deck,
+      zone,
+      list.filter((e) => e !== entry).map((e) => (e === existing ? { ...e, quantity: clampQuantity(e.quantity + entry.quantity) } : e))
+    );
+  }
+  return withList(deck, zone, list.map((e) => (e === entry ? { ...e, card: next } : e)));
+}
+
 export function setMarkIn<D extends EditableDeck>(deck: D, scryfallId: string, zone: EditZone, mark: CardMark | null): D {
   return withList(deck, zone, deck[LIST[zone]].map((e) => (e.card.id === scryfallId ? { ...e, mark } : e)));
 }

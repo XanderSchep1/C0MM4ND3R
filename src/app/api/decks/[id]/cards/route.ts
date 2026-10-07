@@ -5,6 +5,7 @@ import { getCardsByIds } from "@/lib/cards";
 import { limitRequest } from "@/lib/api-guard";
 import { clampQuantity, MAX_DECK_ROWS } from "@/lib/limits";
 import { parseMarkInput } from "@/lib/card-mark";
+import { isSameCard } from "@/lib/printings";
 
 type Zone = "commander" | "mainboard" | "maybeboard";
 const ZONES: Zone[] = ["commander", "mainboard", "maybeboard"];
@@ -69,6 +70,35 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const mark = parseMarkInput(body.mark);
     if (mark === undefined) return NextResponse.json({ error: "mark must be \"owned\", \"missing\" or null" }, { status: 400 });
     await prisma.deckCard.update({ where: { deckId_scryfallId_zone: { deckId: id, scryfallId, zone } }, data: { mark } });
+    return NextResponse.json({ ok: true });
+  }
+
+  // Choosing art: point this line at another printing of the same card.
+  if ("printingId" in body) {
+    const printingId = typeof body.printingId === "string" ? body.printingId.slice(0, 64) : "";
+    if (!printingId) return NextResponse.json({ error: "printingId is required" }, { status: 400 });
+    if (printingId === scryfallId) return NextResponse.json({ ok: true });
+
+    const cards = await getCardsByIds([scryfallId, printingId]);
+    const current = cards.get(scryfallId);
+    const next = cards.get(printingId);
+    if (!current || !next) return NextResponse.json({ error: "Unknown printing" }, { status: 400 });
+    if (!isSameCard(current, next)) return NextResponse.json({ error: "That printing is a different card" }, { status: 400 });
+
+    const currentKey = { deckId_scryfallId_zone: { deckId: id, scryfallId, zone } };
+    const target = await prisma.deckCard.findUnique({ where: { deckId_scryfallId_zone: { deckId: id, scryfallId: printingId, zone } } });
+    if (target) {
+      // The deck already has that printing here: fold this line into it.
+      await prisma.$transaction([
+        prisma.deckCard.delete({ where: currentKey }),
+        prisma.deckCard.update({
+          where: { deckId_scryfallId_zone: { deckId: id, scryfallId: printingId, zone } },
+          data: { quantity: clampQuantity(target.quantity + existing.quantity) },
+        }),
+      ]);
+    } else {
+      await prisma.deckCard.update({ where: currentKey, data: { scryfallId: printingId } });
+    }
     return NextResponse.json({ ok: true });
   }
 
