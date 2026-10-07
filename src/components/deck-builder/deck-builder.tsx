@@ -14,7 +14,8 @@ import { SynergiesPanel } from "./synergies-panel";
 import { CombosPanel } from "./combos-panel";
 import { SaltPanel } from "./salt-panel";
 import { SimulatePanel } from "./simulate-panel";
-import { UpgradesPanel } from "./upgrades-panel";
+import { NewCardsPanel } from "./new-cards-panel";
+import { ReplacementsPanel } from "./replacements-panel";
 import { LandsPanel } from "./lands-panel";
 import { PlaytestPanel } from "./playtest-panel";
 import { CollectionProvider, ToBuySummary } from "./collection";
@@ -31,7 +32,10 @@ interface Props {
   newSetCount: number;
 }
 
-type Tab = "search" | "keyword" | "import" | "export" | "suggestions" | "synergies" | "combos" | "salt" | "simulate" | "upgrades" | "lands" | "playtest";
+type Tab = "search" | "keyword" | "import" | "export" | "suggestions" | "synergies" | "combos" | "salt" | "simulate" | "upgrades" | "newcards" | "lands" | "playtest";
+
+// "Upgrades" looks for cheaper / pricier replacements for the cards you have; "New cards" checks recently released sets.
+const TAB_LABELS: Partial<Record<Tab, string>> = { newcards: "New cards" };
 
 export function DeckBuilder({ deckId, initialDeck, newSetCount }: Props) {
   const router = useRouter();
@@ -109,7 +113,7 @@ export function DeckBuilder({ deckId, initialDeck, newSetCount }: Props) {
   }
 
   const expensive = mostExpensive([...deck.commanders, ...deck.mainboard]);
-  const BUDGET_TABS: Tab[] = ["search", "keyword", "suggestions", "synergies", "salt", "simulate", "upgrades", "lands"];
+  const BUDGET_TABS: Tab[] = ["search", "keyword", "suggestions", "synergies", "salt", "simulate", "newcards", "lands"];
 
   return (
     <BudgetProvider>
@@ -162,14 +166,14 @@ export function DeckBuilder({ deckId, initialDeck, newSetCount }: Props) {
 
           <section>
             <div className="mb-2 flex flex-wrap gap-1 border-b border-black/10 dark:border-white/10">
-              {(["search", "keyword", "import", "export", "suggestions", "synergies", "combos", "salt", "simulate", "upgrades", "lands", "playtest"] as Tab[]).map((t) => (
+              {(["search", "keyword", "import", "export", "suggestions", "synergies", "combos", "salt", "simulate", "upgrades", "newcards", "lands", "playtest"] as Tab[]).map((t) => (
                 <button
                   key={t}
                   onClick={() => setTab(t)}
                   className={`px-2 py-1.5 text-xs font-medium capitalize ${tab === t ? "border-b-2 border-black text-black dark:border-white dark:text-white" : "text-black/40 dark:text-white/40"}`}
                 >
-                  {t}
-                  {t === "upgrades" && newSetCount > 0 && <span className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-[#2a78d6] align-middle" title={`${newSetCount} new set${newSetCount === 1 ? "" : "s"} to check`} />}
+                  {TAB_LABELS[t] ?? t}
+                  {t === "newcards" && newSetCount > 0 && <span className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-[#2a78d6] align-middle" title={`${newSetCount} new set${newSetCount === 1 ? "" : "s"} to check`} />}
                 </button>
               ))}
             </div>
@@ -189,7 +193,10 @@ export function DeckBuilder({ deckId, initialDeck, newSetCount }: Props) {
             )}
             {tab === "salt" && <SaltPanel deckId={deckId} report={annoyance} onAdd={(card, zone) => addCard(card, zone)} />}
             {tab === "upgrades" && (
-              <UpgradesPanel
+              <ReplacementsPanel deckId={deckId} hasCommander={deck.commanders.length > 0} onSwap={(incoming, outgoing) => swapCard(incoming, outgoing)} />
+            )}
+            {tab === "newcards" && (
+              <NewCardsPanel
                 deckId={deckId}
                 hasCommander={deck.commanders.length > 0}
                 onAdd={(card, zone) => addCard(card, zone)}

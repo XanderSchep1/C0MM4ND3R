@@ -9,14 +9,16 @@ export interface SuggestionGroup {
   cards: ScryfallCard[];
 }
 
-const MAX_THEMES = 4;
-const CARDS_PER_THEME = 8;
+// Each gap becomes a chapter of the suggestions book, so it can be deep: the search already
+// returns up to 175 cards per gap, ranked by popularity, and we used to keep only the top 8.
+export const MAX_THEMES = 5;
+export const CARDS_PER_THEME = 40;
 
 function identityClause(colorIdentity: string[]): string {
   return `id<=${colorIdentity.length ? colorIdentity.join("") : "c"}`;
 }
 
-function baseClause(colorIdentity: string[]): string {
+export function baseClause(colorIdentity: string[]): string {
   // -is:funny keeps out Un-set jokes; legality is double-checked against the
   // deck's actual color identity when the suggestions render.
   return `${identityClause(colorIdentity)} f:commander -is:funny game:paper`;

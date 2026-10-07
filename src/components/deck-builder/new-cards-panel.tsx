@@ -42,7 +42,8 @@ function Thumb({ card }: { card: ScryfallCard }) {
   );
 }
 
-export function UpgradesPanel({ deckId, hasCommander, onAdd, onSwap }: Props) {
+// The "New cards" tab: pick recently released sets and see which of their cards would improve the deck.
+export function NewCardsPanel({ deckId, hasCommander, onAdd, onSwap }: Props) {
   const { inBudget } = useBudget();
   const [sets, setSets] = useState<SetWithSeen[] | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -83,7 +84,7 @@ export function UpgradesPanel({ deckId, hasCommander, onAdd, onSwap }: Props) {
     });
   }
 
-  async function findUpgrades() {
+  async function findNewCards() {
     setLoading(true);
     setError(null);
     try {
@@ -94,14 +95,14 @@ export function UpgradesPanel({ deckId, hasCommander, onAdd, onSwap }: Props) {
       });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data) {
-        setError(data?.error ?? "Couldn't check for upgrades. Try again.");
+        setError(data?.error ?? "Couldn't check those sets. Try again.");
         return;
       }
       setSuggestions(data.suggestions);
       setCheckedSets(data.sets);
       setSets((prev) => prev?.map((s) => (selected.has(s.code) ? { ...s, seen: true } : s)) ?? prev);
     } catch {
-      setError("Couldn't check for upgrades. Try again.");
+      setError("Couldn't check those sets. Try again.");
     } finally {
       setLoading(false);
     }
@@ -167,12 +168,12 @@ export function UpgradesPanel({ deckId, hasCommander, onAdd, onSwap }: Props) {
       )}
 
       <button
-        onClick={findUpgrades}
+        onClick={findNewCards}
         disabled={!hasCommander || loading || selected.size === 0}
         className="inline-flex max-w-max items-center gap-2 self-start rounded-md bg-black px-3 py-1.5 text-xs font-medium text-white disabled:opacity-40 dark:bg-white dark:text-black"
       >
         {loading && <span className="h-3 w-3 animate-spin rounded-full border-2 border-white/40 border-t-white dark:border-black/30 dark:border-t-black" />}
-        {loading ? "Checking sets…" : suggestions ? "Check again" : `Find upgrades (${selected.size} set${selected.size === 1 ? "" : "s"})`}
+        {loading ? "Checking sets…" : suggestions ? "Check again" : `Find new cards (${selected.size} set${selected.size === 1 ? "" : "s"})`}
       </button>
       {!hasCommander && <p className="text-xs text-black/40 dark:text-white/40">Pick a commander first.</p>}
       {error && <p className="text-xs text-[#d03b3b]">{error}</p>}
