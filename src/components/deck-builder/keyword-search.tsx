@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { buildKeywordClause } from "@/lib/search-query";
 import { CardTile, TILE_GRID_CLASS, tileButtonClass } from "./card-tile";
-import { useBudget } from "./budget";
+import { OverBudgetNote, useBudget } from "./budget";
+import { splitByBudget } from "@/lib/budget-filter";
 import type { ScryfallCard, DeckZone } from "./types";
 
 interface Props {
@@ -22,6 +23,10 @@ export function KeywordSearch({ deckId, onAdd }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [addingId, setAddingId] = useState<string | null>(null);
+  const [showOverBudget, setShowOverBudget] = useState(false);
+
+  const split = splitByBudget(cards, inBudget);
+  const visible = showOverBudget ? [...split.shown, ...split.hidden] : split.shown;
 
   useEffect(() => {
     const handle = setTimeout(async () => {
@@ -74,8 +79,9 @@ export function KeywordSearch({ deckId, onAdd }: Props) {
           <p className="text-xs text-black/50 dark:text-white/50">
             Suggested adds using &quot;{term.trim()}&quot;, sorted by Commander popularity:
           </p>
+          <OverBudgetNote hidden={split.hidden.length} showing={showOverBudget} onToggle={() => setShowOverBudget((s) => !s)} />
           <div className={TILE_GRID_CLASS}>
-            {cards.filter(inBudget).map((card) => (
+            {visible.map((card) => (
               <CardTile
                 key={card.id}
                 card={card}

@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { CardTile, TILE_GRID_CLASS, cardTileId, tileButtonClass } from "./card-tile";
-import { useBudget } from "./budget";
+import { OverBudgetNote, useBudget } from "./budget";
+import { splitByBudget } from "@/lib/budget-filter";
 import type { ScryfallCard, DeckZone } from "./types";
 
 interface Props {
@@ -33,9 +34,13 @@ export function CardSearch({ deckId, mode, onAdd, focusSignal = 0 }: Props) {
 
   // Enter pressed before the results arrived: add the first match as soon as they do.
   const pendingZone = useRef<DeckZone | null>(null);
-  const addFirstRef = useRef<(results: ScryfallCard[], zone: DeckZone) => void>(() => {});
+  const addFirstRef = useRef<(results: ScryfallCard[], zone: DeckZone, forQuery: string) => void>(() => {});
 
-  const visible = cards.filter(inBudget);
+  const [showOverBudget, setShowOverBudget] = useState(false);
+
+  // Over-budget cards are hidden (and counted), except one you typed the full name of.
+  const split = splitByBudget(cards, inBudget, query);
+  const visible = showOverBudget ? [...split.shown, ...split.hidden] : split.shown;
 
   useEffect(() => {
     if (!focusSignal) return;
@@ -81,7 +86,7 @@ export function CardSearch({ deckId, mode, onAdd, focusSignal = 0 }: Props) {
         if (pendingZone.current) {
           const zone = pendingZone.current;
           pendingZone.current = null;
-          addFirstRef.current(results, zone);
+          addFirstRef.current(results, zone, query);
         }
       } catch {
         setError("Search failed. Try again.");
@@ -105,8 +110,9 @@ export function CardSearch({ deckId, mode, onAdd, focusSignal = 0 }: Props) {
   }
 
   useEffect(() => {
-    addFirstRef.current = (results, zone) => {
-      const first = results.filter(inBudget)[0];
+    addFirstRef.current = (results, zone, forQuery) => {
+      const { shown, hidden } = splitByBudget(results, inBudget, forQuery);
+      const first = (showOverBudget ? [...shown, ...hidden] : shown)[0];
       if (first) void handleAdd(first, zone, true);
     };
   });
@@ -197,6 +203,7 @@ export function CardSearch({ deckId, mode, onAdd, focusSignal = 0 }: Props) {
       </p>
       {loading && <p className="text-xs text-black/40 dark:text-white/40">Searching…</p>}
       {error && !loading && <p className="text-xs text-black/40 dark:text-white/40">{error}</p>}
+      {cards.length > 0 && <OverBudgetNote hidden={split.hidden.length} showing={showOverBudget} onToggle={() => setShowOverBudget((s) => !s)} />}
       {cards.length > 0 && (
         <div className={TILE_GRID_CLASS}>
           {visible.map((card, i) => (

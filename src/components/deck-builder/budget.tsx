@@ -73,7 +73,25 @@ export function BudgetControl() {
           </option>
         ))}
       </select>
-      {max !== null && <span className="text-black/40 dark:text-white/40">Cards over ${max} are hidden in suggestions and search.</span>}
+      {max !== null && <span className="text-black/40 dark:text-white/40">Cards over ${max} are hidden in suggestions and search (a card you type the full name of always shows).</span>}
     </label>
+  );
+}
+
+// Shown under a result list when the budget filter removed cards, so a missing card is never a mystery.
+export function OverBudgetNote({ hidden, showing, onToggle }: { hidden: number; showing: boolean; onToggle: () => void }) {
+  const { max } = useBudget();
+  if (max === null || (hidden === 0 && !showing)) return null;
+  return (
+    <p role="status" className="flex flex-wrap items-center gap-x-2 rounded-md bg-[#fab219]/15 px-2.5 py-1.5 text-xs text-[#8a5a00] dark:text-[#fab219]">
+      <span>
+        {showing
+          ? `Showing cards over your $${max} budget too.`
+          : `${hidden} result${hidden === 1 ? " is" : "s are"} over your $${max} budget and hidden.`}
+      </span>
+      <button type="button" onClick={onToggle} className="font-semibold underline underline-offset-2 hover:opacity-80">
+        {showing ? "Hide them again" : hidden === 1 ? "Show it" : "Show them"}
+      </button>
+    </p>
   );
 }
