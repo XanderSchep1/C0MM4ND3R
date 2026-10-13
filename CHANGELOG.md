@@ -3,6 +3,8 @@
 ## 2026-10-13
 
 ### Changed
+- **Card search is much faster.** Searching the same thing again (or backspacing to an earlier search) is now instant, because your browser keeps each search and name-suggestion answer for a day. A search you've never made before comes back as soon as Scryfall answers, instead of after the app has also finished saving every card from it (that wait was about two seconds). Results appear the moment they arrive instead of waiting for the "did you mean" suggestions, an older slow answer can no longer replace a newer one, a failed suggestion lookup no longer makes the whole search fail, the pause after typing before a search starts is shorter (0.2 seconds), and each search sends less than half the data.
+- **The whole site is quicker, because the server now runs next to the database.** The site's server code ran in Washington DC while the database is in Frankfurt, so every one of the several database queries behind each page and click crossed the Atlantic. It now runs in Frankfurt.
 - **The Missing list copies itself and finds the cards you don't own.** Clicking **Missing** (or **Owned**) above a deck list now copies that list to your clipboard straight away, with a "✓ Copied 12 cards" note; the list stays open underneath if you want another format (with set codes, or a CSV with prices) or to download it. **Missing** is no longer just the lines you coloured red: once you have a Collection it also includes every card you haven't highlighted that your Collection doesn't cover, with only the copies you still need (the same cards that show a **Need** badge). Cards you highlighted yellow are never listed as missing, and basic lands never are.
 
 ## 2026-10-07

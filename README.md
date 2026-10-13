@@ -150,6 +150,9 @@ builds each push and pull request. Work on a branch, open a pull request, and me
    `DATABASE_URL` automatically, or set it yourself under Project Settings → Environment Variables.
    In production use Neon's **pooled** connection string (the host contains `-pooler`) for `DATABASE_URL`, and keep
    the direct string for running migrations. `DATABASE_POOL_MAX` (default 5) caps connections per server instance.
+   Keep the functions in the same region as the database: `vercel.json` pins them to `fra1` (Frankfurt) because the Neon project is in
+   `aws-eu-central-1`. Every page and API call makes several queries, and from the default US region each one crossed the Atlantic
+   (~90 ms). If the database ever moves, change `regions` to match.
 3. Add `AUTH_SECRET` as an environment variable.
 4. Run `npx prisma migrate deploy` against the production database (e.g. `vercel env pull .env.production.local`
    then `DATABASE_URL=... npx prisma migrate deploy`), or wire it into your deploy pipeline.
@@ -157,6 +160,17 @@ builds each push and pull request. Work on a branch, open a pull request, and me
 
 Once the GitHub repo is connected to the Vercel project (Project Settings → Git), every push to `main` deploys to
 production automatically. `vercel deploy --prod` still works for a manual deploy.
+
+## How card search stays fast
+
+Search answers are cached in three places, each good for a day. The browser keeps every answer (`Cache-Control: private, max-age=86400`
+on `/api/scryfall/search` and `/autocomplete`), so repeating a search costs nothing. Postgres keeps the answer to every search
+(`SearchCache`, with the cards in `CardCache`), shared by everyone and written after the response has gone out, so a first-time search
+waits only for Scryfall. Next's fetch cache keeps Scryfall's own answers. A deck's card search depends on its commander's colours, so
+the browser sends the colours it believes the deck has (`scope`, see `src/lib/search-scope.ts`) and the server only lets the answer be
+kept if it sees the same colours; callers that don't send one are never kept. Change `SEARCH_CACHE_VERSION` when the shape of an
+answer changes. Results are trimmed to the fields the app reads (`src/lib/slim-card.ts`; adding a field to `ScryfallCard` without
+listing it there is a type error).
 
 ## How the suggestion engine works
 

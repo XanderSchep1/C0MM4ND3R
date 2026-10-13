@@ -13,6 +13,11 @@ export async function GET(request: Request) {
   const q = url.searchParams.get("q")?.trim() ?? "";
   if (q.length < 2) return NextResponse.json({ suggestions: [] });
 
-  const suggestions = await autocomplete(q);
-  return NextResponse.json({ suggestions });
+  // Card names change only when a set comes out, so the browser may keep an answer for a day. If Scryfall
+  // can't answer, say "no suggestions" (never kept) rather than failing: they're a nicety, not the search.
+  try {
+    return NextResponse.json({ suggestions: await autocomplete(q) }, { headers: { "Cache-Control": "private, max-age=86400" } });
+  } catch {
+    return NextResponse.json({ suggestions: [] }, { headers: { "Cache-Control": "no-store" } });
+  }
 }
