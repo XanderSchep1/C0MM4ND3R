@@ -10,12 +10,16 @@ interface Props {
   swatch: string;
   entries: DeckCardEntry[];
   fileName: string;
+  // The list was already copied to the clipboard when it opened.
+  copiedOnOpen?: boolean;
+  note?: string;
+  emptyHint: string;
   onClose: () => void;
 }
 
-// The cards you've highlighted yellow (owned) or red (missing), as a list you can copy or download:
-// paste the red ones into a store's mass-entry box, or the yellow ones into a trade binder.
-export function MarkedListPanel({ title, swatch, entries, fileName, onClose }: Props) {
+// The owned (yellow) or missing (red, plus anything your Collection lacks) cards as a list you can copy or
+// download: paste the missing ones into a store's mass-entry box, or the owned ones into a trade binder.
+export function MarkedListPanel({ title, swatch, entries, fileName, copiedOnOpen = false, note, emptyHint, onClose }: Props) {
   const [format, setFormat] = useState<CardListFormat>("text");
   const [feedback, setFeedback] = useState<string | null>(null);
   const textRef = useRef<HTMLTextAreaElement>(null);
@@ -26,6 +30,8 @@ export function MarkedListPanel({ title, swatch, entries, fileName, onClose }: P
   const priced = entries.map((e) => ({ price: priceValue(e.card), quantity: e.quantity }));
   const total = priced.reduce((sum, p) => sum + (p.price ?? 0) * p.quantity, 0);
   const unpriced = priced.filter((p) => p.price === null).length;
+  const cardWord = `${entries.length} card${entries.length === 1 ? "" : "s"}`;
+  const status = feedback ?? (copiedOnOpen ? `Copied ${cardWord}` : null);
 
   function say(message: string) {
     setFeedback(message);
@@ -35,7 +41,7 @@ export function MarkedListPanel({ title, swatch, entries, fileName, onClose }: P
   async function copy() {
     try {
       await navigator.clipboard.writeText(text);
-      say(`Copied ${entries.length} card${entries.length === 1 ? "" : "s"}`);
+      say(`Copied ${cardWord}`);
     } catch {
       // Clipboard access can be blocked (e.g. on an insecure page); leave the text selected for Ctrl/Cmd+C.
       textRef.current?.focus();
@@ -72,7 +78,7 @@ export function MarkedListPanel({ title, swatch, entries, fileName, onClose }: P
       </div>
 
       {entries.length === 0 ? (
-        <p className="text-xs text-black/50 dark:text-white/50">No cards are marked this way yet. Use the highlight button on a card line.</p>
+        <p className="text-xs text-black/50 dark:text-white/50">{emptyHint}</p>
       ) : (
         <>
           <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -97,10 +103,13 @@ export function MarkedListPanel({ title, swatch, entries, fileName, onClose }: P
               Download
             </button>
             <span role="status" aria-live="polite" className="font-medium text-[#0b7a0b] dark:text-[#3fd13f]">
-              {feedback ? `✓ ${feedback}` : ""}
+              {status ? `✓ ${status}` : ""}
             </span>
           </div>
-          <p className="text-[11px] text-black/40 dark:text-white/40">{info.hint}</p>
+          <p className="text-[11px] text-black/40 dark:text-white/40">
+            {note ? `${note} ` : ""}
+            {info.hint}
+          </p>
           <textarea
             ref={textRef}
             readOnly

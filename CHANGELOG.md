@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-10-13
+
+### Changed
+- **The Missing list copies itself and finds the cards you don't own.** Clicking **Missing** (or **Owned**) above a deck list now copies that list to your clipboard straight away, with a "✓ Copied 12 cards" note; the list stays open underneath if you want another format (with set codes, or a CSV with prices) or to download it. **Missing** is no longer just the lines you coloured red: once you have a Collection it also includes every card you haven't highlighted that your Collection doesn't cover, with only the copies you still need (the same cards that show a **Need** badge). Cards you highlighted yellow are never listed as missing, and basic lands never are.
+
 ## 2026-10-07
 
 ### Fixed

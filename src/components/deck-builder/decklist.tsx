@@ -5,6 +5,8 @@ import { cardImageUrl, cardManaCost, formatPrice } from "@/lib/card-helpers";
 import type { CardMark } from "@/lib/card-mark";
 import { nextMark } from "@/lib/deck-edits";
 import { groupAndSort, type SortState } from "@/lib/deck-sort";
+import { buildCardList } from "@/lib/decklist-export";
+import { entriesForMark } from "@/lib/marked-lists";
 import { CardNameText, HoverPreview } from "./card-hover-name";
 import { MarkedListPanel } from "./marked-list-panel";
 import { ManaCost } from "./mana-cost";
@@ -149,6 +151,29 @@ export function Decklist({ entries, sort, listName, zone, viewer, onQuantityChan
   const isOwner = viewer.role === "owner";
   // Which highlighted list (owned / missing) is open for copying, if any.
   const [openList, setOpenList] = useState<CardMark | null>(null);
+  const [copiedOnOpen, setCopiedOnOpen] = useState(false);
+  const haveCollection = unique > 0;
+  const listFor = (mark: CardMark) => entriesForMark(entries, mark, haveCollection ? owned : null);
+
+  // Opening a list copies it straight away (plain "qty name" text); the panel under the chips offers other formats.
+  // The copy runs inside the click, before anything is awaited, because browsers only allow it then.
+  function toggleList(mark: CardMark) {
+    if (openList === mark) {
+      setOpenList(null);
+      return;
+    }
+    setOpenList(mark);
+    setCopiedOnOpen(false);
+    const list = listFor(mark);
+    if (list.length === 0 || !navigator.clipboard) return;
+    navigator.clipboard.writeText(buildCardList(list, "text")).then(
+      () => {
+        setCopiedOnOpen(true);
+        setTimeout(() => setCopiedOnOpen(false), 2500);
+      },
+      () => {} // blocked: the panel's Copy list button is still there
+    );
+  }
   if (entries.length === 0) {
     return <p className="text-sm text-black/40 dark:text-white/40">No cards here yet.</p>;
   }
@@ -161,14 +186,14 @@ export function Decklist({ entries, sort, listName, zone, viewer, onQuantityChan
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-black/50 dark:text-white/50">
           <span>Highlight button on each line: once = yellow, twice = red.</span>
           {MARKS.map(({ mark, label, swatch }) => {
-            const count = entries.filter((e) => e.mark === mark).length;
+            const count = listFor(mark).length;
             return (
               <button
                 key={mark}
                 type="button"
-                onClick={() => setOpenList((open) => (open === mark ? null : mark))}
+                onClick={() => toggleList(mark)}
                 aria-expanded={openList === mark}
-                title={`See and copy the ${label.toLowerCase()} cards`}
+                title={`Copy the ${label.toLowerCase()} cards (and see the list)`}
                 className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 font-medium hover:bg-black/5 dark:hover:bg-white/10 ${
                   openList === mark ? "border-black/40 bg-black/5 text-black dark:border-white/50 dark:bg-white/10 dark:text-white" : "border-black/15 dark:border-white/20"
                 }`}
@@ -185,8 +210,17 @@ export function Decklist({ entries, sort, listName, zone, viewer, onQuantityChan
         <MarkedListPanel
           title={`${MARKS.find((m) => m.mark === openList)!.label} cards in the ${listName}`}
           swatch={MARKS.find((m) => m.mark === openList)!.swatch}
-          entries={entries.filter((e) => e.mark === openList)}
+          entries={listFor(openList)}
           fileName={`${listName} ${openList}`}
+          copiedOnOpen={copiedOnOpen}
+          note={openList === "missing" && haveCollection ? "Cards highlighted red, plus cards your Collection doesn't cover." : undefined}
+          emptyHint={
+            openList === "missing"
+              ? haveCollection
+                ? "Nothing is missing: every card is highlighted yellow or already in your Collection."
+                : "No cards are highlighted red yet. Use the highlight button on a card line, or add the cards you own under Collection and the ones you lack are listed here."
+              : "No cards are highlighted yellow yet. Use the highlight button on a card line."
+          }
           onClose={() => setOpenList(null)}
         />
       )}
