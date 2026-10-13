@@ -5,12 +5,15 @@ import { CardTile, TILE_GRID_CLASS, cardTileId, tileButtonClass } from "./card-t
 import { OverBudgetNote, useBudget } from "./budget";
 import { useSuggesting } from "./suggest-mode";
 import { splitByBudget } from "@/lib/budget-filter";
+import { SEARCH_CACHE_VERSION } from "@/lib/search-scope";
 import type { ScryfallCard, DeckZone } from "./types";
 
 interface Props {
   deckId: string;
   mode: "commander" | "card";
   onAdd: (card: ScryfallCard, zone: DeckZone) => void | Promise<void>;
+  // The colours the deck's commander gives it (see searchScope). Lets the browser keep answers for a day.
+  scope?: string;
   // Bump this number to focus the search box (the deck page does it when you press "/").
   focusSignal?: number;
 }
@@ -18,7 +21,7 @@ interface Props {
 const LOOKS_LIKE_SYNTAX = /[a-z!@-]+[:=]|[<>]=?/i;
 const ZONE_NAME: Record<DeckZone, string> = { commander: "commander", mainboard: "the Mainboard", maybeboard: "the Maybeboard" };
 
-export function CardSearch({ deckId, mode, onAdd, focusSignal = 0 }: Props) {
+export function CardSearch({ deckId, mode, onAdd, scope = "", focusSignal = 0 }: Props) {
   const suggesting = useSuggesting();
   const { inBudget } = useBudget();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -57,30 +60,43 @@ export function CardSearch({ deckId, mode, onAdd, focusSignal = 0 }: Props) {
   }, [justAdded]);
 
   useEffect(() => {
+    // `stale` flips when the query changes (or the box is left), so a slow answer to an earlier query can
+    // never replace the answer to a later one.
+    let stale = false;
+    const controller = new AbortController();
     const handle = setTimeout(async () => {
       if (!query.trim()) {
         setCards([]);
         setSettledQuery("");
         setSuggestions([]);
         setError(null);
+        setLoading(false);
         pendingZone.current = null;
         return;
       }
       setLoading(true);
       setError(null);
-      try {
-        const params = new URLSearchParams({ q: query, mode, deckId });
-        const searchPromise = fetch(`/api/scryfall/search?${params}`).then((r) => r.json());
-        const suggestPromise = LOOKS_LIKE_SYNTAX.test(query)
-          ? Promise.resolve({ suggestions: [] })
-          : fetch(`/api/scryfall/autocomplete?q=${encodeURIComponent(query)}`).then((r) => r.json());
 
-        const [data, suggestData] = await Promise.all([searchPromise, suggestPromise]);
+      // Name suggestions arrive on their own: they never hold the results up, and if they fail nothing is lost.
+      if (LOOKS_LIKE_SYNTAX.test(query)) setSuggestions([]);
+      else {
+        fetch(`/api/scryfall/autocomplete?q=${encodeURIComponent(query)}`, { signal: controller.signal })
+          .then((r) => r.json())
+          .then((data) => {
+            if (!stale) setSuggestions((data.suggestions ?? []).filter((s: string) => s.toLowerCase() !== query.trim().toLowerCase()));
+          })
+          .catch(() => {});
+      }
+
+      try {
+        const params = new URLSearchParams({ q: query, mode, deckId, v: SEARCH_CACHE_VERSION });
+        if (scope) params.set("scope", scope);
+        const data = await fetch(`/api/scryfall/search?${params}`, { signal: controller.signal }).then((r) => r.json());
+        if (stale) return;
         const results: ScryfallCard[] = data.cards ?? [];
         setCards(results);
         setSettledQuery(query);
         setActiveIndex(0);
-        setSuggestions((suggestData.suggestions ?? []).filter((s: string) => s.toLowerCase() !== query.trim().toLowerCase()));
         if (data.error) setError(data.error);
         else if (results.length === 0) setError("No matches — try a different name, or Scryfall syntax like t:artifact o:draw.");
         if (pendingZone.current) {
@@ -89,13 +105,17 @@ export function CardSearch({ deckId, mode, onAdd, focusSignal = 0 }: Props) {
           addFirstRef.current(results, zone, query);
         }
       } catch {
-        setError("Search failed. Try again.");
+        if (!stale) setError("Search failed. Try again.");
       } finally {
-        setLoading(false);
+        if (!stale) setLoading(false);
       }
-    }, 350);
-    return () => clearTimeout(handle);
-  }, [query, mode, deckId]);
+    }, 200);
+    return () => {
+      stale = true;
+      clearTimeout(handle);
+      controller.abort();
+    };
+  }, [query, mode, deckId, scope]);
 
   async function handleAdd(card: ScryfallCard, zone: DeckZone) {
     setAddingId(card.id + zone);

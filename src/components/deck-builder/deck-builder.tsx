@@ -21,6 +21,7 @@ import { PlaytestPanel } from "./playtest-panel";
 import { CollectionProvider, ToBuySummary } from "./collection";
 import { BudgetControl, BudgetProvider } from "./budget";
 import { SuggestModeProvider } from "./suggest-mode";
+import { searchScope } from "@/lib/search-scope";
 import { mostExpensive } from "@/lib/card-helpers";
 import { ShareControl } from "./share-control";
 import { Decklist } from "./decklist";
@@ -157,6 +158,7 @@ export function DeckBuilder({ deckId, initialDeck, newSetCount, role, viewer, ow
   }
 
   const expensive = mostExpensive([...deck.commanders, ...deck.mainboard]);
+  const scope = searchScope(deck.commanders.map((e) => e.card));
   const BUDGET_TABS: Tab[] = ["search", "keyword", "suggestions", "synergies", "salt", "simulate", "newcards", "lands"];
 
   return (
@@ -241,8 +243,8 @@ export function DeckBuilder({ deckId, initialDeck, newSetCount, role, viewer, ow
               ))}
             </div>
             {BUDGET_TABS.includes(tab) && <BudgetControl />}
-            {tab === "search" && <CardSearch deckId={deckId} mode="card" focusSignal={searchFocus} onAdd={addAnnounced} />}
-            {tab === "keyword" && <KeywordSearch deckId={deckId} onAdd={addAnnounced} />}
+            {tab === "search" && <CardSearch deckId={deckId} mode="card" scope={scope} focusSignal={searchFocus} onAdd={addAnnounced} />}
+            {tab === "keyword" && <KeywordSearch deckId={deckId} scope={scope} onAdd={addAnnounced} />}
             {tab === "import" && <ImportPanel onImport={handleImport} />}
             {tab === "export" && <ExportPanel deck={deck} />}
             {tab === "suggestions" && (
