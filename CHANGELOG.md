@@ -5,6 +5,9 @@
 ### Changed
 - **The Missing list copies itself and finds the cards you don't own.** Clicking **Missing** (or **Owned**) above a deck list now copies that list to your clipboard straight away, with a "✓ Copied 12 cards" note; the list stays open underneath if you want another format (with set codes, or a CSV with prices) or to download it. **Missing** is no longer just the lines you coloured red: once you have a Collection it also includes every card you haven't highlighted that your Collection doesn't cover, with only the copies you still need (the same cards that show a **Need** badge). Cards you highlighted yellow are never listed as missing, and basic lands never are.
 
+### Under the hood
+- **A missing database migration can no longer take the site down.** Production builds now compare the migrations in the code with the ones the production database has recorded. If the code is ahead, the deploy is stopped with a message naming the missing migration and the command to run, and the site keeps running on the previous version; apply the migration, then redeploy. (Added after the friends update went live before its migration had been applied, which made the deck pages error until it was.)
+
 ## 2026-10-07
 
 ### Fixed

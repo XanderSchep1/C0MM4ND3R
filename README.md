@@ -121,7 +121,11 @@ scheduled workflows after 60 days without repository activity.
 
 ## Working safely
 
-Every push to `main` deploys to production, and CI (`.github/workflows/ci.yml`) typechecks, lints, runs the tests (`npm test`) and
+Every push to `main` deploys to production. **When a change adds a database migration, apply it to production first** (step 4 under
+Deploying to Vercel), then merge. As a safety net, `npm run build` runs `scripts/check-migrations.mjs` on Vercel production builds: if
+`prisma/migrations` holds a migration the production database hasn't recorded, the build fails with the migration's name and the command
+to run, and the previous deployment keeps serving. Apply the migration, then redeploy from the Vercel dashboard. (Preview builds and CI skip
+the check; if it can't reach the database it warns and lets the build continue.) CI (`.github/workflows/ci.yml`) typechecks, lints, runs the tests (`npm test`) and
 builds each push and pull request. Work on a branch, open a pull request, and merge when CI is green. In GitHub, Settings → Branches → add a rule for
 `main` that requires the **check** job to pass if you want that enforced.
 
@@ -152,7 +156,9 @@ builds each push and pull request. Work on a branch, open a pull request, and me
    the direct string for running migrations. `DATABASE_POOL_MAX` (default 5) caps connections per server instance.
 3. Add `AUTH_SECRET` as an environment variable.
 4. Run `npx prisma migrate deploy` against the production database (e.g. `vercel env pull .env.production.local`
-   then `DATABASE_URL=... npx prisma migrate deploy`), or wire it into your deploy pipeline.
+   then `DATABASE_URL=... npx prisma migrate deploy`), or wire it into your deploy pipeline. Do this before merging any change that adds
+   a migration; production builds refuse to deploy while a migration is missing. To see where production stands without changing anything:
+   `(set -a; . ./.env; set +a; CHECK_MIGRATIONS=1 node scripts/check-migrations.mjs)`.
 5. Deploy. The dev-only credentials login is automatically excluded since `NODE_ENV === "production"` on Vercel.
 
 Once the GitHub repo is connected to the Vercel project (Project Settings → Git), every push to `main` deploys to
