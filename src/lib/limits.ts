@@ -10,6 +10,8 @@ export const MAX_DECKS_PER_USER = 100;
 export const MAX_DECK_ROWS = 400;
 export const MAX_IMPORT_CHARS = 30_000;
 export const MAX_IMPORT_LINES = 500;
+// How many cards one friend can have waiting in a deck's Maybeboard at once.
+export const MAX_SUGGESTIONS_PER_FRIEND = 60;
 // Names the exact-match lookup misses each cost one fuzzy Scryfall call.
 export const MAX_FUZZY_LOOKUPS = 20;
 

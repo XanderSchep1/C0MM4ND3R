@@ -23,8 +23,9 @@ export async function GET(request: Request) {
   if (mode === "commander") {
     clauses.push("(is:commander or t:background)");
   } else if (mode === "card" && deckId) {
+    // The colors come from the commander of a deck you own or were invited to.
     const deck = await prisma.deck.findFirst({
-      where: { id: deckId, userId: session.user.id },
+      where: { id: deckId, OR: [{ userId: session.user.id }, { collaborators: { some: { userId: session.user.id } } }] },
       include: { cards: { where: { zone: "commander" } } },
     });
     if (deck && deck.cards.length > 0) {

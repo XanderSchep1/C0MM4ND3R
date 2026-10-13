@@ -7,6 +7,8 @@ export interface DeckCardEntry {
   quantity: number;
   // Only set for the deck's owner; see resolveDeck.
   mark?: CardMark | null;
+  // Who suggested this card (a friend invited to the deck); null/absent for the owner's own cards.
+  addedBy?: { id: string; name: string } | null;
 }
 
 export interface ValidationIssue {

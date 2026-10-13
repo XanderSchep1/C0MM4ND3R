@@ -3,6 +3,7 @@ import { getCardsByIds } from "./cards";
 import type { ScryfallCard } from "./scryfall-types";
 import type { DeckCardEntry } from "./commander";
 import { toMark } from "./card-mark";
+import { personName } from "./deck-access";
 
 export async function getOwnedDeck(deckId: string, userId: string) {
   const deck = await prisma.deck.findFirst({
@@ -24,8 +25,8 @@ export interface ResolvedDeck {
   unresolved: { scryfallId: string; name: string; zone: string; quantity: number }[];
 }
 
-// `withMarks` adds the owner's yellow/red highlights to each entry. They are left
-// out unless asked for, so a page anyone can open (the share page) can never leak them.
+// `withMarks` adds the owner's yellow/red highlights to each entry and `withAuthors` says who suggested
+// each card. Both are left out unless asked for, so a page anyone can open (the share page) can never leak them.
 export async function resolveDeck(
   deck: {
     id: string;
@@ -33,9 +34,9 @@ export async function resolveDeck(
     format: string;
     description: string | null;
     public: boolean;
-    cards: { scryfallId: string; name: string; quantity: number; zone: string; mark?: string | null }[];
+    cards: { scryfallId: string; name: string; quantity: number; zone: string; mark?: string | null; addedBy?: { id: string; name: string | null; email: string | null } | null }[];
   },
-  options: { withMarks?: boolean } = {}
+  options: { withMarks?: boolean; withAuthors?: boolean } = {}
 ): Promise<ResolvedDeck> {
   const cardMap = await getCardsByIds(deck.cards.map((c) => c.scryfallId));
 
@@ -50,7 +51,9 @@ export async function resolveDeck(
       unresolved.push({ scryfallId: row.scryfallId, name: row.name, zone: row.zone, quantity: row.quantity });
       continue;
     }
-    const entry: DeckCardEntry = options.withMarks ? { card, quantity: row.quantity, mark: toMark(row.mark) } : { card, quantity: row.quantity };
+    const entry: DeckCardEntry = { card, quantity: row.quantity };
+    if (options.withMarks) entry.mark = toMark(row.mark);
+    if (options.withAuthors) entry.addedBy = row.addedBy ? { id: row.addedBy.id, name: personName(row.addedBy) } : null;
     if (row.zone === "commander") commanders.push(entry);
     else if (row.zone === "maybeboard") maybeboard.push(entry);
     else mainboard.push(entry);

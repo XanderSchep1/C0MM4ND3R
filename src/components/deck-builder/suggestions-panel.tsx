@@ -5,6 +5,7 @@ import { splitByBudget } from "@/lib/budget-filter";
 import { clampPage, pageCount, pageRange, pageSlice } from "@/lib/book";
 import { CardTile, tileButtonClass } from "./card-tile";
 import { FlipBook } from "./flip-book";
+import { useSuggesting } from "./suggest-mode";
 import { OverBudgetNote, useBudget } from "./budget";
 import type { ScryfallCard, SuggestionGroup } from "./types";
 
@@ -17,6 +18,7 @@ interface Props {
 // Suggestions as a book: every gap in the deck (ramp, removal, …) is a chapter with up to 40
 // popular cards, shown six to a page. Pick a chapter from the bookmarks, then turn the pages.
 export function SuggestionsPanel({ deckId, hasCommander, onAdd }: Props) {
+  const suggesting = useSuggesting();
   const { inBudget } = useBudget();
   const [groups, setGroups] = useState<SuggestionGroup[] | null>(null);
   const [chapterKey, setChapterKey] = useState<string | null>(null);
@@ -130,7 +132,7 @@ export function SuggestionsPanel({ deckId, hasCommander, onAdd }: Props) {
                       card={card}
                       actions={
                         <button onClick={() => handleAdd(card)} disabled={addingId === card.id} className={tileButtonClass("primary")}>
-                          Add
+                          {suggesting ? "Suggest" : "Add"}
                         </button>
                       }
                     />

@@ -9,6 +9,8 @@ export interface ToastOptions {
   onAction?: () => void;
   tone?: "info" | "error";
   durationMs?: number;
+  // A new toast with the same key replaces the old one instead of stacking (e.g. "Added …" while adding many cards).
+  key?: string;
 }
 
 interface ToastItem extends ToastOptions {
@@ -35,7 +37,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const dismiss = useCallback((id: number) => setItems((all) => all.filter((t) => t.id !== id)), []);
   const show = useCallback((toast: ToastOptions) => {
     const id = nextId.current++;
-    setItems((all) => [...all, { ...toast, id }].slice(-MAX_VISIBLE));
+    setItems((all) => [...all.filter((t) => t.key === undefined || t.key !== toast.key), { ...toast, id }].slice(-MAX_VISIBLE));
   }, []);
   const api = useMemo(() => ({ show }), [show]);
 

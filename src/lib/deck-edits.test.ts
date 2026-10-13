@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addToDeck, findEntry, moveBetween, nextMark, removeFrom, rowCount, setMarkIn, setQuantityIn, type EditableDeck } from "./deck-edits";
+import { addToDeck, findEntry, moveBetween, nextMark, removeFrom, rowCount, setMarkIn, setQuantityIn, swapPrinting, type EditableDeck } from "./deck-edits";
 import { MAX_CARD_QUANTITY, MAX_DECK_ROWS } from "./limits";
 import type { ScryfallCard } from "./scryfall-types";
 
@@ -98,5 +98,40 @@ describe("marks", () => {
     expect(nextMark(undefined)).toBe("owned");
     expect(nextMark("owned")).toBe("missing");
     expect(nextMark("missing")).toBeNull();
+  });
+});
+
+describe("swapPrinting (choosing art)", () => {
+  const art = (id: string) => ({ ...card("Sol Ring"), id }) as ScryfallCard;
+
+  it("points the line at the new printing, keeping quantity, mark and position", () => {
+    let deck = addToDeck(empty(), art("print-a"), "mainboard", 2)!;
+    deck = setMarkIn(deck, "print-a", "mainboard", "owned");
+    const next = swapPrinting(deck, "print-a", "mainboard", art("print-b"));
+    expect(next.mainboard).toEqual([{ card: art("print-b"), quantity: 2, mark: "owned" }]);
+    expect(findEntry(next, "print-a", "mainboard")).toBeUndefined();
+  });
+
+  it("merges into a line that already uses that printing, keeping that line's mark", () => {
+    let deck = addToDeck(addToDeck(empty(), art("print-a"), "mainboard", 2)!, art("print-b"), "mainboard", 1)!;
+    deck = setMarkIn(setMarkIn(deck, "print-a", "mainboard", "missing"), "print-b", "mainboard", "owned");
+    const next = swapPrinting(deck, "print-a", "mainboard", art("print-b"));
+    expect(next.mainboard).toEqual([{ card: art("print-b"), quantity: 3, mark: "owned" }]);
+  });
+
+  it("only touches the zone it was asked about", () => {
+    const deck = addToDeck(addToDeck(empty(), art("print-a"), "mainboard")!, art("print-a"), "maybeboard")!;
+    const next = swapPrinting(deck, "print-a", "mainboard", art("print-b"));
+    expect(next.mainboard[0].card.id).toBe("print-b");
+    expect(next.maybeboard[0].card.id).toBe("print-a");
+  });
+
+  it("does nothing for a missing line or the same printing, and never mutates the deck", () => {
+    const deck = addToDeck(empty(), art("print-a"), "mainboard")!;
+    expect(swapPrinting(deck, "nope", "mainboard", art("print-b"))).toBe(deck);
+    expect(swapPrinting(deck, "print-a", "mainboard", art("print-a"))).toBe(deck);
+    const snapshot = JSON.stringify(deck);
+    swapPrinting(deck, "print-a", "mainboard", art("print-b"));
+    expect(JSON.stringify(deck)).toBe(snapshot);
   });
 });
