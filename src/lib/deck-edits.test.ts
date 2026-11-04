@@ -4,7 +4,7 @@ import { MAX_CARD_QUANTITY, MAX_DECK_ROWS } from "./limits";
 import type { ScryfallCard } from "./scryfall-types";
 
 const card = (id: string, name = `Card ${id}`) => ({ id, name, type_line: "Artifact", cmc: 1, color_identity: [] }) as unknown as ScryfallCard;
-const empty = (): EditableDeck => ({ commanders: [], mainboard: [], maybeboard: [] });
+const empty = (): EditableDeck => ({ commanders: [], companions: [], mainboard: [], maybeboard: [] });
 
 describe("addToDeck", () => {
   it("adds a new card with no mark, and raises the quantity of one already there", () => {
@@ -133,5 +133,28 @@ describe("swapPrinting (choosing art)", () => {
     const snapshot = JSON.stringify(deck);
     swapPrinting(deck, "print-a", "mainboard", art("print-b"));
     expect(JSON.stringify(deck)).toBe(snapshot);
+  });
+});
+
+describe("the companion zone", () => {
+  it("is a list of its own, counted in the deck's rows but kept apart from the other lists", () => {
+    const deck = addToDeck(addToDeck(empty(), card("lurrus"), "companion")!, card("sol"), "mainboard")!;
+    expect(deck.companions.map((e) => e.card.id)).toEqual(["lurrus"]);
+    expect(deck.mainboard.map((e) => e.card.id)).toEqual(["sol"]);
+    expect(rowCount(deck)).toBe(2);
+    expect(findEntry(deck, "lurrus", "companion")?.card.id).toBe("lurrus");
+    expect(findEntry(deck, "lurrus", "mainboard")).toBeUndefined();
+  });
+
+  it("can be removed, and changes nothing else", () => {
+    const deck = addToDeck(addToDeck(empty(), card("lurrus"), "companion")!, card("sol"), "mainboard")!;
+    const without = removeFrom(deck, "lurrus", "companion");
+    expect(without.companions).toEqual([]);
+    expect(without.mainboard).toEqual(deck.mainboard);
+  });
+
+  it("can change art like any other line", () => {
+    const deck = addToDeck(empty(), card("lurrus-1", "Lurrus"), "companion")!;
+    expect(swapPrinting(deck, "lurrus-1", "companion", card("lurrus-2", "Lurrus")).companions[0].card.id).toBe("lurrus-2");
   });
 });

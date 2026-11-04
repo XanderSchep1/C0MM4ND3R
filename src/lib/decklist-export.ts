@@ -1,5 +1,7 @@
 import type { DeckCardEntry } from "./commander";
 
+type DeckLike = { commanders: DeckCardEntry[]; companions: DeckCardEntry[]; mainboard: DeckCardEntry[]; maybeboard: DeckCardEntry[] };
+
 function formatZone(entries: DeckCardEntry[]): string {
   return [...entries]
     .sort((a, b) => a.card.name.localeCompare(b.card.name))
@@ -10,9 +12,10 @@ function formatZone(entries: DeckCardEntry[]): string {
 // Plain "qty name" text, one card per line, grouped under section headers —
 // the same shape our own decklist-parser.ts round-trips back in, and the
 // convention most other deckbuilders (Moxfield, Archidekt, MTGGoldfish) read.
-export function buildDecklistText(deck: { commanders: DeckCardEntry[]; mainboard: DeckCardEntry[]; maybeboard: DeckCardEntry[] }): string {
+export function buildDecklistText(deck: DeckLike): string {
   const sections: string[] = [];
   if (deck.commanders.length > 0) sections.push(`Commander\n${formatZone(deck.commanders)}`);
+  if (deck.companions.length > 0) sections.push(`Companion\n${formatZone(deck.companions)}`);
   sections.push(`Deck\n${formatZone(deck.mainboard) || "(empty)"}`);
   if (deck.maybeboard.length > 0) sections.push(`Maybeboard\n${formatZone(deck.maybeboard)}`);
   return sections.join("\n\n") + "\n";
@@ -24,11 +27,9 @@ export const EXPORT_FORMATS: { value: ExportFormat; label: string; extension: st
   { value: "text", label: "Plain text", extension: "txt", hint: "Works for most deckbuilders, and for importing back here." },
   { value: "sets", label: "With set codes (Moxfield / Archidekt)", extension: "txt", hint: "Includes each card's set and collector number so the exact printing is picked." },
   { value: "arena", label: "MTG Arena", extension: "txt", hint: "Paste into Arena's Import Deck." },
-  { value: "mtgo", label: "MTG Online", extension: "txt", hint: "Commander and maybeboard go in the sideboard (SB:)." },
+  { value: "mtgo", label: "MTG Online", extension: "txt", hint: "Commander, companion and maybeboard go in the sideboard (SB:)." },
   { value: "csv", label: "CSV spreadsheet", extension: "csv", hint: "Zone, quantity, name, set, collector number and price." },
 ];
-
-type DeckLike = { commanders: DeckCardEntry[]; mainboard: DeckCardEntry[]; maybeboard: DeckCardEntry[] };
 
 const byName = (entries: DeckCardEntry[]) => [...entries].sort((a, b) => a.card.name.localeCompare(b.card.name));
 const withSet = (e: DeckCardEntry) => `${e.quantity} ${e.card.name} (${e.card.set.toUpperCase()}) ${e.card.collector_number ?? ""}`.trim();
@@ -45,13 +46,14 @@ export function buildExport(deck: DeckLike, format: ExportFormat): string {
       const lines = (entries: DeckCardEntry[]) => byName(entries).map(withSet).join("\n");
       const sections: string[] = [];
       if (deck.commanders.length > 0) sections.push(`Commander\n${lines(deck.commanders)}`);
+      if (deck.companions.length > 0) sections.push(`Companion\n${lines(deck.companions)}`);
       sections.push(`Deck\n${lines(deck.mainboard) || "(empty)"}`);
       if (format === "sets" && deck.maybeboard.length > 0) sections.push(`Maybeboard\n${lines(deck.maybeboard)}`);
       return sections.join("\n\n") + "\n";
     }
     case "mtgo": {
       const main = byName(deck.mainboard).map((e) => `${e.quantity} ${e.card.name}`);
-      const side = byName([...deck.commanders, ...deck.maybeboard]).map((e) => `SB: ${e.quantity} ${e.card.name}`);
+      const side = byName([...deck.commanders, ...deck.companions, ...deck.maybeboard]).map((e) => `SB: ${e.quantity} ${e.card.name}`);
       return [...main, ...(side.length > 0 ? ["", ...side] : [])].join("\n") + "\n";
     }
     case "csv": {
@@ -62,6 +64,7 @@ export function buildExport(deck: DeckLike, format: ExportFormat): string {
         }
       };
       add("Commander", deck.commanders);
+      add("Companion", deck.companions);
       add("Mainboard", deck.mainboard);
       add("Maybeboard", deck.maybeboard);
       return rows.join("\n") + "\n";

@@ -8,15 +8,16 @@ import { clampQuantity, MAX_DECK_ROWS } from "./limits";
 // cap, same row cap, marks travelling with a card), so the two stay in step.
 // Every function returns a new deck and leaves the one it was given untouched.
 
-export type EditZone = "commander" | "mainboard" | "maybeboard";
+export type EditZone = "commander" | "companion" | "mainboard" | "maybeboard";
 
 export interface EditableDeck {
   commanders: DeckCardEntry[];
+  companions: DeckCardEntry[];
   mainboard: DeckCardEntry[];
   maybeboard: DeckCardEntry[];
 }
 
-const LIST = { commander: "commanders", mainboard: "mainboard", maybeboard: "maybeboard" } as const;
+const LIST = { commander: "commanders", companion: "companions", mainboard: "mainboard", maybeboard: "maybeboard" } as const;
 
 function withList<D extends EditableDeck>(deck: D, zone: EditZone, entries: DeckCardEntry[]): D {
   return { ...deck, [LIST[zone]]: entries };
@@ -27,7 +28,7 @@ export function findEntry(deck: EditableDeck, scryfallId: string, zone: EditZone
 }
 
 export function rowCount(deck: EditableDeck): number {
-  return deck.commanders.length + deck.mainboard.length + deck.maybeboard.length;
+  return deck.commanders.length + deck.companions.length + deck.mainboard.length + deck.maybeboard.length;
 }
 
 // Adds copies of a card (raising the quantity if it's already there). Returns null

@@ -27,7 +27,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const colorIdentity = colorIdentityUnion(resolved.commanders.map((c) => c.card));
   const analysis = analyzeDeck(resolved.mainboard, colorIdentity);
   const excludeNames = new Set(
-    [...resolved.commanders, ...resolved.mainboard, ...resolved.maybeboard].map((e) => e.card.name)
+    [...resolved.commanders, ...resolved.companions, ...resolved.mainboard, ...resolved.maybeboard].map((e) => e.card.name)
   );
 
   const groups = await suggestForGaps(analysis, colorIdentity, excludeNames);

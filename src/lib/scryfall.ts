@@ -39,7 +39,7 @@ class ScryfallApiError extends Error {
   }
 }
 
-async function request<T>(bucket: Bucket, path: string, init?: RequestInit): Promise<T> {
+async function request<T>(bucket: Bucket, path: string, init?: RequestInit, revalidateSeconds = 3600): Promise<T> {
   return schedule(bucket, async () => {
     const res = await fetch(`${API_BASE}${path}`, {
       ...init,
@@ -50,7 +50,7 @@ async function request<T>(bucket: Bucket, path: string, init?: RequestInit): Pro
       },
       // Card data changes rarely; let the platform cache GETs briefly on top
       // of our own DB cache.
-      next: init?.method && init.method !== "GET" ? undefined : { revalidate: 3600 },
+      next: init?.method && init.method !== "GET" ? undefined : { revalidate: revalidateSeconds },
     });
     const body = (await res.json()) as T | ScryfallError;
     if (!res.ok || (body as ScryfallError).object === "error") {
@@ -100,9 +100,12 @@ export async function getCardByNameFuzzy(name: string): Promise<ScryfallCard | n
 }
 
 export async function autocomplete(query: string): Promise<string[]> {
+  // Card names change only when a set is released, so a day-old answer is as good as a fresh one.
   const res = await request<{ object: "catalog"; data: string[] }>(
     "default",
-    `/cards/autocomplete?q=${encodeURIComponent(query)}`
+    `/cards/autocomplete?q=${encodeURIComponent(query)}`,
+    undefined,
+    24 * 60 * 60
   );
   return res.data;
 }

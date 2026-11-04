@@ -34,3 +34,23 @@ describe("resolveDeck marks", () => {
     expect(marks).toEqual({ a: "owned", b: "missing", c: null, d: null });
   });
 });
+
+describe("resolveDeck companion", () => {
+  it("keeps the companion out of the mainboard and the commanders", async () => {
+    const resolved = await resolveDeck({
+      ...deck,
+      cards: [
+        { scryfallId: "cmd", name: "Cmd", quantity: 1, zone: "commander" },
+        { scryfallId: "lurrus", name: "Lurrus", quantity: 1, zone: "companion" },
+        { scryfallId: "a", name: "A", quantity: 1, zone: "mainboard" },
+      ],
+    });
+    expect(resolved.companions.map((e) => e.card.id)).toEqual(["lurrus"]);
+    expect(resolved.commanders.map((e) => e.card.id)).toEqual(["cmd"]);
+    expect(resolved.mainboard.map((e) => e.card.id)).toEqual(["a"]);
+  });
+
+  it("is an empty list for a deck without one", async () => {
+    expect((await resolveDeck(deck)).companions).toEqual([]);
+  });
+});

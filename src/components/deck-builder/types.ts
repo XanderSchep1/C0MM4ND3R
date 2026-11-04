@@ -12,5 +12,5 @@ export type { LandSuggestion } from "@/lib/land-suggest";
 export type { LandBalance, ColorBalance } from "@/lib/land-balance";
 export type { DeckProfile, SimulationResult, WeakSpot } from "@/lib/game-sim";
 export { BRACKETS } from "@/lib/game-sim";
-export type DeckZone = "commander" | "mainboard" | "maybeboard";
+export type DeckZone = "commander" | "companion" | "mainboard" | "maybeboard";
 export type { ReplacementMode, ReplacementOption, ReplacementResult, ReplacementRow } from "@/lib/replacements";

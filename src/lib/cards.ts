@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { after } from "next/server";
 import { prisma } from "./prisma";
 import { getCardsCollection, getCardByNameFuzzy, searchCards, type SearchOptions } from "./scryfall";
 import type { ScryfallCard } from "./scryfall-types";
@@ -10,25 +11,39 @@ import { MAX_FUZZY_LOOKUPS } from "./limits";
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 // Pure cache population — no correctness requirement that every row lands
-// atomically, so this intentionally isn't a transaction. A single
-// `$transaction` over a full page of search results (up to 175 cards) was
-// prone to blowing Prisma's default 5s interactive-transaction timeout
-// against a remote Postgres; batching plain upserts avoids both that and
-// opening too many connections at once.
-const UPSERT_BATCH_SIZE = 20;
+// atomically, so this intentionally isn't a transaction. A full page of search
+// results is up to 175 cards (~1 MB), so rows go in a few multi-row statements
+// (one round trip each) rather than one upsert per card, which took ~2 seconds
+// against a remote Postgres.
+const UPSERT_BATCH_SIZE = 50;
 
 async function upsertCardsCache(cards: ScryfallCard[]): Promise<void> {
-  for (let i = 0; i < cards.length; i += UPSERT_BATCH_SIZE) {
-    const batch = cards.slice(i, i + UPSERT_BATCH_SIZE);
-    await Promise.all(
-      batch.map((card) =>
-        prisma.cardCache.upsert({
-          where: { scryfallId: card.id },
-          create: { scryfallId: card.id, name: card.name, data: card as unknown as object },
-          update: { name: card.name, data: card as unknown as object },
-        })
-      )
+  const unique = [...new Map(cards.map((card) => [card.id, card])).values()]; // one row per id, or ON CONFLICT refuses
+  for (let i = 0; i < unique.length; i += UPSERT_BATCH_SIZE) {
+    const batch = unique.slice(i, i + UPSERT_BATCH_SIZE);
+    const ids = batch.map((card) => card.id);
+    const names = batch.map((card) => card.name);
+    const data = batch.map((card) => JSON.stringify(card));
+    await prisma.$executeRaw`
+      INSERT INTO "CardCache" ("scryfallId", "name", "data", "updatedAt")
+      SELECT t.id, t.name, t.data::jsonb, NOW()
+      FROM unnest(${ids}::text[], ${names}::text[], ${data}::text[]) AS t(id, name, data)
+      ON CONFLICT ("scryfallId") DO UPDATE SET "name" = EXCLUDED."name", "data" = EXCLUDED."data", "updatedAt" = NOW()`;
+  }
+}
+
+// Runs `task` once the response has gone out, so cache writes never make a person wait. Outside a request
+// (tests, scripts) there is nothing to wait after, so it just runs now.
+async function afterResponse(task: () => Promise<unknown>): Promise<void> {
+  const guarded = () =>
+    task().then(
+      () => undefined,
+      (err) => console.error("card cache write failed", err)
     );
+  try {
+    after(guarded);
+  } catch {
+    await guarded();
   }
 }
 
@@ -137,8 +152,11 @@ export async function searchAndCacheCards(
   }
 
   const result = await searchCards(query, opts);
-  await upsertCardsCache(result.data);
-  const entry = { cardIds: result.data.map((c) => c.id), hasMore: result.has_more, totalCards: result.total_cards ?? null };
-  await prisma.searchCache.upsert({ where: { key }, create: { key, ...entry }, update: entry });
+  // The answer goes back at once; remembering it (cards first, then the search that points at them) happens after.
+  await afterResponse(async () => {
+    await upsertCardsCache(result.data);
+    const entry = { cardIds: result.data.map((c) => c.id), hasMore: result.has_more, totalCards: result.total_cards ?? null };
+    await prisma.searchCache.upsert({ where: { key }, create: { key, ...entry }, update: entry });
+  });
   return { cards: result.data, hasMore: result.has_more, totalCards: result.total_cards };
 }

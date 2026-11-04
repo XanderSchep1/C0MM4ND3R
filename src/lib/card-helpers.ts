@@ -48,11 +48,24 @@ export function cardManaCost(card: ScryfallCard): string {
   return "";
 }
 
+function hasPowerAndToughness(card: ScryfallCard): boolean {
+  if (card.power != null && card.toughness != null) return true;
+  const front = card.card_faces?.[0];
+  return front?.power != null && front?.toughness != null;
+}
+
+// Who may be a commander on their own: legendary creatures, cards that say so, legendary Vehicles and Spacecraft
+// that have a power and toughness, and Grist (a planeswalker that is a creature everywhere but the battlefield, so
+// it is one in the command zone). Checked against Scryfall's is:commander list: the only other cards on it are the
+// Backgrounds, which are commanders only in a pair (see commander-pairs.ts).
 export function isLegalCommander(card: ScryfallCard): boolean {
   const typeLine = card.type_line ?? "";
-  const isLegendaryCreature = typeLine.includes("Legendary") && typeLine.includes("Creature");
-  const explicitlyAllowed = /can be your commander/i.test(cardOracleText(card));
-  return isLegendaryCreature || explicitlyAllowed;
+  const legendary = typeLine.includes("Legendary");
+  if (legendary && typeLine.includes("Creature")) return true;
+  const text = cardOracleText(card);
+  if (/can be your commander/i.test(text)) return true;
+  if (legendary && /\b(Vehicle|Spacecraft)\b/.test(typeLine) && hasPowerAndToughness(card)) return true;
+  return legendary && /isn't on the battlefield, it's an? [^.]*creature/i.test(text);
 }
 
 export function isBackground(card: ScryfallCard): boolean {

@@ -29,12 +29,12 @@ export default async function SharedDeckPage({ params }: { params: Promise<{ id:
   const deck = await loadPublicDeck(id);
   if (!deck) notFound();
 
-  const validation = validateCommanderDeck(deck.commanders, deck.mainboard);
+  const validation = validateCommanderDeck(deck.commanders, deck.mainboard, deck.companions);
   const colorIdentity = colorIdentityUnion(deck.commanders.map((c) => c.card));
   const analysis = analyzeDeck(deck.mainboard, colorIdentity);
   const ownedCards = [...deck.commanders, ...deck.mainboard];
   const powerLevel = estimatePowerLevel(ownedCards);
-  const priceTotal = calculatePriceTotal(ownedCards);
+  const priceTotal = calculatePriceTotal([...ownedCards, ...deck.companions]);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
@@ -61,6 +61,23 @@ export default async function SharedDeckPage({ params }: { params: Promise<{ id:
               })}
             </div>
           </section>
+
+          {deck.companions.length > 0 && (
+            <section>
+              <h2 className="mb-2 text-sm font-semibold">Companion</h2>
+              <div className="flex gap-3">
+                {deck.companions.map(({ card }) => {
+                  const img = cardImageUrl(card, "normal");
+                  return (
+                    <div key={card.id} className="w-32 shrink-0 overflow-hidden rounded-lg border border-black/10 dark:border-white/10">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      {img && <img src={img} alt={card.name} className="w-full" />}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
 
           <section>
             <StatsPanel colorIdentity={validation.colorIdentity} analysis={analysis} powerLevel={powerLevel} priceTotal={priceTotal} expensive={mostExpensive([...deck.commanders, ...deck.mainboard])} />
