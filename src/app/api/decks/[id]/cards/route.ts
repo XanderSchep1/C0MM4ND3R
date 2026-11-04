@@ -8,8 +8,8 @@ import { clampQuantity, MAX_DECK_ROWS, MAX_SUGGESTIONS_PER_FRIEND } from "@/lib/
 import { parseMarkInput } from "@/lib/card-mark";
 import { isSameCard } from "@/lib/printings";
 
-type Zone = "commander" | "mainboard" | "maybeboard";
-const ZONES: Zone[] = ["commander", "mainboard", "maybeboard"];
+type Zone = "commander" | "companion" | "mainboard" | "maybeboard";
+const ZONES: Zone[] = ["commander", "companion", "mainboard", "maybeboard"];
 
 const forbidden = (message: string) => NextResponse.json({ error: message }, { status: 403 });
 
@@ -42,7 +42,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return forbidden("Friends can only suggest cards for the Maybeboard.");
   }
   const zone: Zone = role === "contributor" ? "maybeboard" : ZONES.includes(body.zone) ? body.zone : "mainboard";
-  const quantity = role === "contributor" ? 1 : clampQuantity(Number(body.quantity));
+  // A companion is a single card.
+  const quantity = role === "contributor" || zone === "companion" ? 1 : clampQuantity(Number(body.quantity));
 
   const cardMap = await getCardsByIds([scryfallId]);
   const card = cardMap.get(scryfallId);
@@ -63,12 +64,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ ok: true }, { status: 201 });
   }
 
+  if (zone === "companion" && (await prisma.deckCard.findFirst({ where: { deckId: id, zone: "companion", NOT: { scryfallId } }, select: { id: true } }))) {
+    return NextResponse.json({ error: "A deck can have only one companion. Remove the current one first." }, { status: 400 });
+  }
+
   const key = { deckId_scryfallId_zone: { deckId: id, scryfallId, zone } };
   const existing = await prisma.deckCard.findUnique({ where: key });
   if (!existing && (await prisma.deckCard.count({ where: { deckId: id } })) >= MAX_DECK_ROWS) {
     return NextResponse.json({ error: `A deck can hold at most ${MAX_DECK_ROWS} different cards.` }, { status: 400 });
   }
-  const next = clampQuantity((existing?.quantity ?? 0) + quantity);
+  const next = zone === "companion" ? 1 : clampQuantity((existing?.quantity ?? 0) + quantity);
   // Adding a card a friend suggested makes it the owner's own.
   await prisma.deckCard.upsert({
     where: key,
@@ -143,7 +148,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   const newZone: Zone | undefined = ZONES.includes(body.newZone) ? body.newZone : undefined;
-  const quantity = Number.isFinite(body.quantity) ? clampQuantity(body.quantity, 0) : existing.quantity;
+  // The companion is chosen (and removed) from the commander panel, never moved around like a deck card.
+  if (newZone && newZone !== zone && (newZone === "companion" || zone === "companion")) {
+    return NextResponse.json({ error: "Choose or remove the companion from the commander panel." }, { status: 400 });
+  }
+  const requested = Number.isFinite(body.quantity) ? clampQuantity(body.quantity, 0) : existing.quantity;
+  const quantity = zone === "companion" ? Math.min(1, requested) : requested;
 
   if (newZone && newZone !== zone) {
     const targetKey = { deckId_scryfallId_zone: { deckId: id, scryfallId, zone: newZone } };

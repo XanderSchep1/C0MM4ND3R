@@ -10,7 +10,11 @@ import type { ScryfallCard, DeckZone } from "./types";
 
 interface Props {
   deckId: string;
-  mode: "commander" | "card";
+  // "card" adds to the deck; the other two fill one slot of the command zone.
+  mode: "commander" | "companion" | "card";
+  // Second-commander search: the id of the first commander, so only cards that can pair with it are offered.
+  partnerOf?: string;
+  placeholder?: string;
   onAdd: (card: ScryfallCard, zone: DeckZone) => void | Promise<void>;
   // The colours the deck's commander gives it (see searchScope). Lets the browser keep answers for a day.
   scope?: string;
@@ -19,9 +23,16 @@ interface Props {
 }
 
 const LOOKS_LIKE_SYNTAX = /[a-z!@-]+[:=]|[<>]=?/i;
-const ZONE_NAME: Record<DeckZone, string> = { commander: "commander", mainboard: "the Mainboard", maybeboard: "the Maybeboard" };
+const ZONE_NAME: Record<DeckZone, string> = { commander: "commander", companion: "companion", mainboard: "the Mainboard", maybeboard: "the Maybeboard" };
 
-export function CardSearch({ deckId, mode, onAdd, scope = "", focusSignal = 0 }: Props) {
+// What each single-slot search sets.
+const SLOTS = {
+  commander: { zone: "commander", noun: "commander", button: "Set commander", placeholder: "Search for a commander by name…", label: "Search for a commander" },
+  companion: { zone: "companion", noun: "companion", button: "Set companion", placeholder: "Search for a companion by name…", label: "Search for a companion" },
+} as const;
+
+export function CardSearch({ deckId, mode, onAdd, partnerOf, placeholder, scope = "", focusSignal = 0 }: Props) {
+  const slot = mode === "card" ? null : SLOTS[mode];
   const suggesting = useSuggesting();
   const { inBudget } = useBudget();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -78,7 +89,8 @@ export function CardSearch({ deckId, mode, onAdd, scope = "", focusSignal = 0 }:
       setError(null);
 
       // Name suggestions arrive on their own: they never hold the results up, and if they fail nothing is lost.
-      if (LOOKS_LIKE_SYNTAX.test(query)) setSuggestions([]);
+      // (Not for a restricted search, where a suggested name would just find nothing.)
+      if (LOOKS_LIKE_SYNTAX.test(query) || partnerOf || mode === "companion") setSuggestions([]);
       else {
         fetch(`/api/scryfall/autocomplete?q=${encodeURIComponent(query)}`, { signal: controller.signal })
           .then((r) => r.json())
@@ -91,6 +103,7 @@ export function CardSearch({ deckId, mode, onAdd, scope = "", focusSignal = 0 }:
       try {
         const params = new URLSearchParams({ q: query, mode, deckId, v: SEARCH_CACHE_VERSION });
         if (scope) params.set("scope", scope);
+        if (partnerOf) params.set("partnerOf", partnerOf);
         const data = await fetch(`/api/scryfall/search?${params}`, { signal: controller.signal }).then((r) => r.json());
         if (stale) return;
         const results: ScryfallCard[] = data.cards ?? [];
@@ -115,7 +128,7 @@ export function CardSearch({ deckId, mode, onAdd, scope = "", focusSignal = 0 }:
       clearTimeout(handle);
       controller.abort();
     };
-  }, [query, mode, deckId, scope]);
+  }, [query, mode, deckId, scope, partnerOf]);
 
   async function handleAdd(card: ScryfallCard, zone: DeckZone) {
     setAddingId(card.id + zone);
@@ -160,7 +173,7 @@ export function CardSearch({ deckId, mode, onAdd, scope = "", focusSignal = 0 }:
     } else if (e.key === "Enter" && !e.nativeEvent.isComposing) {
       e.preventDefault();
       if (!query.trim()) return;
-      const zone: DeckZone = mode === "commander" ? "commander" : e.shiftKey ? "maybeboard" : "mainboard";
+      const zone: DeckZone = slot ? slot.zone : e.shiftKey ? "maybeboard" : "mainboard";
       if (loading || settledQuery !== query) pendingZone.current = zone;
       else addActive(zone);
     } else if (e.key === "Escape") {
@@ -182,8 +195,10 @@ export function CardSearch({ deckId, mode, onAdd, scope = "", focusSignal = 0 }:
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           onKeyDown={onKeyDown}
-          placeholder={mode === "commander" ? "Search for a commander by name…" : "Search cards by name… (or Scryfall syntax like t:artifact o:draw)"}
-          aria-label={mode === "commander" ? "Search for a commander" : "Search for cards"}
+          placeholder={placeholder ?? slot?.placeholder ?? "Search cards by name… (or Scryfall syntax like t:artifact o:draw)"}
+          aria-label={slot?.label ?? "Search for cards"}
+          // Opening a slot's search is a request to type into it.
+          autoFocus={slot !== null}
           className="w-full rounded-md border border-black/15 px-3 py-2 text-sm dark:border-white/15 dark:bg-black"
         />
       </div>
@@ -206,9 +221,9 @@ export function CardSearch({ deckId, mode, onAdd, scope = "", focusSignal = 0 }:
         </div>
       )}
       <p className="-mt-1 text-[11px] text-black/40 dark:text-white/40">
-        {mode === "commander" ? (
+        {slot ? (
           <>
-            <Key>Enter</Key> sets the first match as commander
+            <Key>Enter</Key> sets the first match as {slot.noun}
           </>
         ) : suggesting ? (
           <>
@@ -236,13 +251,13 @@ export function CardSearch({ deckId, mode, onAdd, scope = "", focusSignal = 0 }:
               card={card}
               active={focused && i === activeIndex}
               actions={
-                mode === "commander" ? (
+                slot ? (
                   <button
-                    onClick={() => handleAdd(card, "commander")}
-                    disabled={addingId === card.id + "commander"}
+                    onClick={() => handleAdd(card, slot.zone)}
+                    disabled={addingId === card.id + slot.zone}
                     className={tileButtonClass("primary")}
                   >
-                    Set commander
+                    {slot.button}
                   </button>
                 ) : (
                   <>

@@ -25,7 +25,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
   const colorIdentity = colorIdentityUnion(resolved.commanders.map((c) => c.card));
   const signals = detectSynergySignals(resolved.commanders, resolved.mainboard);
-  const excludeNames = new Set([...resolved.commanders, ...resolved.mainboard, ...resolved.maybeboard].map((e) => e.card.name));
+  const excludeNames = new Set([...resolved.commanders, ...resolved.companions, ...resolved.mainboard, ...resolved.maybeboard].map((e) => e.card.name));
 
   if (signals.length === 0) {
     return NextResponse.json({ groups: [] });

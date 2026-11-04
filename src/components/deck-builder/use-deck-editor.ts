@@ -11,7 +11,7 @@ import { MAX_DECK_ROWS } from "@/lib/limits";
 import { printingLabel } from "@/lib/printings";
 import type { ResolvedDeck, ScryfallCard } from "./types";
 
-const ZONE_LABEL: Record<EditZone, string> = { commander: "Commander", mainboard: "Mainboard", maybeboard: "Maybeboard" };
+const ZONE_LABEL: Record<EditZone, string> = { commander: "Commander", companion: "Companion", mainboard: "Mainboard", maybeboard: "Maybeboard" };
 
 // Owns the deck on the page. Every edit changes the screen (and the stats) at once, then
 // quietly tells the server; see DeckSync for how the two are kept in step. Removing or moving
@@ -104,17 +104,21 @@ export function useDeckEditor(deckId: string, initialDeck: ResolvedDeck, viewer:
     async (card: ScryfallCard | string, requestedZone: EditZone, requestedQuantity = 1, options: { announce?: boolean } = {}) => {
       const suggesting = viewer.role === "contributor";
       const zone: EditZone = suggesting ? "maybeboard" : requestedZone;
-      const quantity = suggesting ? 1 : requestedQuantity;
+      const quantity = suggesting || zone === "companion" ? 1 : requestedQuantity;
       if (typeof card === "string") {
         send(json("POST", cardsUrl, { scryfallId: card, zone, quantity }), "Couldn't add that card.");
         await syncRef.current?.refresh();
+        return;
+      }
+      if (zone === "companion" && deckRef.current.companions.some((e) => e.card.id !== card.id)) {
+        showRef.current({ message: "A deck can have only one companion. Remove the current one first.", tone: "error", durationMs: 4000 });
         return;
       }
       const hadBefore = findEntry(deckRef.current, card.id, zone)?.quantity ?? 0;
       if (suggesting) {
         // A suggestion is for a card the deck doesn't have yet, in any printing or part of the deck.
         const d = deckRef.current;
-        const has = [...d.commanders, ...d.mainboard, ...d.maybeboard].some((e) => e.card.name === card.name);
+        const has = [...d.commanders, ...d.companions, ...d.mainboard, ...d.maybeboard].some((e) => e.card.name === card.name);
         if (has) {
           showRef.current({ message: `${card.name} is already in this deck.`, tone: "error", durationMs: 4000 });
           return;
@@ -128,7 +132,7 @@ export function useDeckEditor(deckId: string, initialDeck: ResolvedDeck, viewer:
       if (options.announce) {
         showRef.current({
           key: "added",
-          message: suggesting ? `Suggested ${card.name} for the Maybeboard` : `Added ${card.name} to the ${ZONE_LABEL[zone]}`,
+          message: suggesting ? `Suggested ${card.name} for the Maybeboard` : zone === "companion" ? `${card.name} is now your companion` : `Added ${card.name} to the ${ZONE_LABEL[zone]}`,
           actionLabel: "Undo",
           durationMs: 4000,
           // Back to how many copies there were before (none, if it was new).

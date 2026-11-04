@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-04
+
+### New
+- **Backgrounds, Doctor's companions, every kind of Partner, and a Companion.** The second commander slot now knows what the first commander can pair with and says so: **Add partner** for a plain Partner, **Add Rowan Kenrith** for a "Partner with" card, **Add Friends forever partner** (or Survivors, Father & son, Character select) for a Partner variant, **Choose a Background** for a commander that has it, and **Add a Doctor** or **Add a companion** for the Doctor Who pair. The search behind it shows only cards that really can pair with the first one (all 52 "Partner with" pairs, 58 plain Partners, the Partner variants, 30 Backgrounds and 17 Time Lord Doctors were checked against Scryfall), and a Background can also be picked first, which then asks for a commander that can choose it. A commander with no pairing ability gets no second slot, with an "Add a second commander anyway" link in case a new card has one the app doesn't know yet. Pairs that can't go together now show an error that says why (before, only a vague warning appeared), and "Paired through Partner." shows when they can.
+- **Companion.** Under the commanders, **+ Add a companion** searches the ten Companions that fit your commander's colors. A companion sits outside the 100 cards, shows its deck rule under its picture, is in your exports (its own section; the sideboard for MTG Online) and imports (a **Companion** section), and appears on the shared page and in the to-buy list. Lurrus, Gyruda, Obosh, Keruga, Lutri, Umori, Jegantha and Kaheera are checked against your deck and a yellow warning names the cards that break the rule (your commander counts as part of the deck); Yorion is flagged because a 100-card deck can never meet it; Zirda's rule is shown for you to check.
+- **More cards can be your commander.** Legendary Vehicles and Spacecraft that have a power and toughness, and Grist, the Hunger Tide, are now accepted (Scryfall lists them as commanders; the app used to say they couldn't be).
+- Opening the commander, partner or companion search puts the cursor in the box, and the "did you mean" names are left out when the search is limited to partners or companions, where they would only find nothing.
+
 ## 2026-10-13
 
 ### Changed

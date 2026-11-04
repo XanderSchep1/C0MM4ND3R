@@ -84,3 +84,66 @@ describe("GET /api/scryfall/search", () => {
     expect((await search({ q: "sol ring" })).status).toBe(401);
   });
 });
+
+describe("GET /api/scryfall/search — commander pairs and companions", () => {
+  const card = (name: string, extra: Partial<ScryfallCard> = {}) => ({ id: name, name, type_line: "Legendary Creature — Human", keywords: [], color_identity: [], ...extra }) as unknown as ScryfallCard;
+  const will = card("Will Kenrith", { oracle_text: "Partner with Rowan Kenrith (...)", keywords: ["Partner with", "Partner"] });
+  const rowan = card("Rowan Kenrith", { id: "rowan", oracle_text: "Partner with Will Kenrith (...)", keywords: ["Partner with", "Partner"] });
+  const tymna = card("Tymna the Weaver", { oracle_text: "Partner (...)", keywords: ["Partner"] });
+  const thrasios = card("Thrasios, Triton Hero", { oracle_text: "Partner (...)", keywords: ["Partner"] });
+  const atraxa = card("Atraxa", { oracle_text: "Flying" });
+  const known = new Map([will, rowan, tymna, thrasios, atraxa].map((c) => [c.id, c]));
+
+  beforeEach(() => {
+    Object.values(mocks).forEach((m) => m.mockReset());
+    mocks.auth.mockResolvedValue({ user: { id: "user-1" } });
+    mocks.getCardsByIds.mockImplementation(async (ids: string[]) => new Map(ids.flatMap((id) => (known.has(id) ? [[id, known.get(id)!] as const] : []))));
+  });
+
+  const found = async (res: Response) => ((await res.json()).cards as ScryfallCard[]).map((c) => c.name);
+
+  it("offers only what can pair with the first commander, searching for exactly that", async () => {
+    mocks.searchAndCacheCards.mockResolvedValue({ cards: [rowan, tymna, will], hasMore: false, totalCards: 3 });
+    const res = await search({ q: "kenrith", mode: "commander", partnerOf: "Will Kenrith" });
+    expect(mocks.searchAndCacheCards.mock.calls[0][0]).toBe('kenrith f:commander !"Rowan Kenrith" (is:commander or t:background)');
+    expect(await found(res)).toEqual(["Rowan Kenrith"]);
+  });
+
+  it("doesn't offer the first commander itself as its own partner (another printing of it included)", async () => {
+    mocks.searchAndCacheCards.mockResolvedValue({ cards: [tymna, { ...tymna, id: "tymna-2" }, thrasios], hasMore: false, totalCards: 3 });
+    expect(await found(await search({ q: "partner", mode: "commander", partnerOf: "Tymna the Weaver" }))).toEqual(["Thrasios, Triton Hero"]);
+    expect(mocks.searchAndCacheCards.mock.calls[0][0]).toContain('keyword:partner -keyword:"partner with"');
+  });
+
+  it("has no restriction without a first commander, or when it has no pairing ability or isn't known", async () => {
+    mocks.searchAndCacheCards.mockResolvedValue({ cards: [tymna, atraxa], hasMore: false, totalCards: 2 });
+    const variants: Record<string, string>[] = [{}, { partnerOf: "Atraxa" }, { partnerOf: "no-such-card" }];
+    for (const params of variants) {
+      mocks.searchAndCacheCards.mockClear();
+      expect(await found(await search({ q: "x", mode: "commander", ...params }))).toEqual(["Tymna the Weaver", "Atraxa"]);
+      expect(mocks.searchAndCacheCards.mock.calls[0][0]).toBe("x f:commander (is:commander or t:background)");
+    }
+  });
+
+  it("lets the browser keep a partner search, since it depends on nothing but the request", async () => {
+    mocks.searchAndCacheCards.mockResolvedValue({ cards: [rowan], hasMore: false, totalCards: 1 });
+    expect((await search({ q: "kenrith", mode: "commander", partnerOf: "Will Kenrith" })).headers.get("Cache-Control")).toBe("private, max-age=86400");
+  });
+
+  it("searches companions within the commander's colours, and keeps the answer only when the colours agree", async () => {
+    mocks.deckFindFirst.mockResolvedValue({ cards: [{ scryfallId: "cmd" }] });
+    mocks.getCardsByIds.mockResolvedValue(new Map([["cmd", { id: "cmd", color_identity: ["G", "B"] } as unknown as ScryfallCard]]));
+    mocks.searchAndCacheCards.mockResolvedValue({ cards: [], hasMore: false, totalCards: 0 });
+    const res = await search({ q: "lurrus", mode: "companion", deckId: "deck-1", scope: "BG" });
+    expect(mocks.searchAndCacheCards.mock.calls[0][0]).toBe("lurrus f:commander keyword:companion id<=BG");
+    expect(res.headers.get("Cache-Control")).toBe("private, max-age=86400");
+    expect((await search({ q: "lurrus", mode: "companion", deckId: "deck-1", scope: "none" })).headers.get("Cache-Control")).toBe("no-store");
+  });
+
+  it("offers every companion while the deck has no commander yet", async () => {
+    mocks.deckFindFirst.mockResolvedValue({ cards: [] });
+    mocks.searchAndCacheCards.mockResolvedValue({ cards: [], hasMore: false, totalCards: 0 });
+    await search({ q: "lurrus", mode: "companion", deckId: "deck-1", scope: "none" });
+    expect(mocks.searchAndCacheCards.mock.calls[0][0]).toBe("lurrus f:commander keyword:companion");
+  });
+});

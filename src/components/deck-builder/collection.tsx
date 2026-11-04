@@ -88,7 +88,7 @@ export function ToBuySummary({ deck }: { deck: ResolvedDeck }) {
     );
   }
 
-  const missing = [...deck.commanders, ...deck.mainboard]
+  const missing = [...deck.commanders, ...deck.companions, ...deck.mainboard]
     .map((e) => ({ card: e.card, need: Math.max(0, e.quantity - owned(e.card)) }))
     .filter((m) => m.need > 0)
     .sort((a, b) => (priceValue(b.card) ?? 0) * b.need - (priceValue(a.card) ?? 0) * a.need);

@@ -222,9 +222,12 @@ export function DeckBuilder({ deckId, initialDeck, newSetCount, role, viewer, ow
             <CommanderPanel
               deckId={deckId}
               commanders={deck.commanders}
+              companions={deck.companions}
               onAdd={(card) => addCard(card, "commander")}
               onRemove={(scryfallId) => removeCard(scryfallId, "commander")}
-              onChooseArt={(card) => setArtFor({ card, zone: "commander" })}
+              onAddCompanion={(card) => addCard(card, "companion", 1, { announce: true })}
+              onRemoveCompanion={(scryfallId) => removeCard(scryfallId, "companion")}
+              onChooseArt={(card, zone) => setArtFor({ card, zone })}
               readOnly={!isOwner}
             />
           </section>

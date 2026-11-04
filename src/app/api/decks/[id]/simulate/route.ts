@@ -35,7 +35,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const url = new URL(request.url);
   const bracket = Math.min(5, Math.max(1, Number(url.searchParams.get("bracket")) || 3));
 
-  const validation = validateCommanderDeck(resolved.commanders, resolved.mainboard);
+  const validation = validateCommanderDeck(resolved.commanders, resolved.mainboard, resolved.companions);
   const colorIdentity = validation.colorIdentity;
   const analysis = analyzeDeck(resolved.mainboard, colorIdentity);
   const powerLevel = estimatePowerLevel([...resolved.commanders, ...resolved.mainboard]);
@@ -63,7 +63,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const result = runSimulation(userProfile, bracket, scale);
 
   const excludeNames = new Set(
-    [...resolved.commanders, ...resolved.mainboard, ...resolved.maybeboard].map((e) => e.card.name.toLowerCase())
+    [...resolved.commanders, ...resolved.companions, ...resolved.mainboard, ...resolved.maybeboard].map((e) => e.card.name.toLowerCase())
   );
   const base = `id<=${colorIdentity.length ? colorIdentity.join("") : "c"} f:commander -is:funny game:paper`;
   const suggestions = (
