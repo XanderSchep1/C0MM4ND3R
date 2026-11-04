@@ -58,6 +58,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (rows.size > MAX_DECK_ROWS) {
     return NextResponse.json({ error: `A deck can hold at most ${MAX_DECK_ROWS} different cards.` }, { status: 400 });
   }
+  if ([...rows.values()].filter((row) => row.zone === "companion").length > 1) {
+    return NextResponse.json({ error: "A deck can have only one companion." }, { status: 400 });
+  }
 
   // One transaction, so a failure part-way through never leaves a replaced deck half-empty.
   await prisma.$transaction([

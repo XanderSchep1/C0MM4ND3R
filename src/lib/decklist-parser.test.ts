@@ -43,3 +43,19 @@ describe("parseDecklist", () => {
     expect(lines).toEqual([{ quantity: 1, name: "Island", zone: "mainboard" }]);
   });
 });
+
+describe("companion", () => {
+  it("reads a Companion section, however it's titled", () => {
+    const lines = parseDecklist("Commander\n1 Atraxa, Praetors' Voice\n\nCompanion\n1 Lurrus of the Dream-Den\n\nDeck\n1 Sol Ring");
+    expect(lines).toEqual([
+      { quantity: 1, name: "Atraxa, Praetors' Voice", zone: "commander" },
+      { quantity: 1, name: "Lurrus of the Dream-Den", zone: "companion" },
+      { quantity: 1, name: "Sol Ring", zone: "mainboard" },
+    ]);
+    expect(parseDecklist("Companions:\n1 Lurrus of the Dream-Den")[0].zone).toBe("companion");
+  });
+
+  it("reads a Companion: prefix on a single line", () => {
+    expect(parseDecklist("Companion: 1 Lurrus of the Dream-Den")).toEqual([{ quantity: 1, name: "Lurrus of the Dream-Den", zone: "companion" }]);
+  });
+});

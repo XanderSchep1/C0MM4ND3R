@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getCardsByIds, searchAndCacheCards } from "@/lib/cards";
 import { colorIdentityUnion } from "@/lib/card-helpers";
 import { searchScope } from "@/lib/search-scope";
+import { canPair, pairingGuide } from "@/lib/commander-pairs";
 import { slimCard } from "@/lib/slim-card";
 import type { ScryfallCard } from "@/lib/scryfall-types";
 
@@ -35,7 +36,7 @@ export async function GET(request: Request) {
   const page = Number(url.searchParams.get("page") ?? "1") || 1;
 
   // Counting the request and reading the deck don't depend on each other, so they happen together.
-  const deckSearch = mode === "card" && !!deckId && !!q;
+  const deckSearch = (mode === "card" || mode === "companion") && !!deckId && !!q;
   const [limited, commanders] = await Promise.all([
     limitRequest(userId, "search", { cards: [], hasMore: false }),
     deckSearch ? commandersOf(deckId, userId) : Promise.resolve([]),
@@ -44,11 +45,25 @@ export async function GET(request: Request) {
   if (!q) return NextResponse.json({ cards: [], hasMore: false });
 
   const clauses = [q, "f:commander"];
+  // Choosing a second commander: only what can pair with the first one (given by id, so the answer depends on
+  // nothing but the request and can be kept like any other).
+  let partner: ScryfallCard | null = null;
   if (mode === "commander") {
+    const partnerId = url.searchParams.get("partnerOf")?.slice(0, 64);
+    const first = partnerId ? (await getCardsByIds([partnerId])).get(partnerId) : undefined;
+    const guide = first ? pairingGuide(first) : null;
+    if (first && guide) {
+      partner = first;
+      clauses.push(guide.clause);
+    }
     clauses.push("(is:commander or t:background)");
-  } else if (deckSearch && commanders.length > 0) {
-    const identity = colorIdentityUnion(commanders);
-    clauses.push(`id<=${identity.length ? identity.join("") : "c"}`);
+  } else {
+    if (mode === "companion") clauses.push("keyword:companion");
+    if (deckSearch && commanders.length > 0) {
+      // Colour limits apply to a companion too: it has to fit the commander's identity.
+      const identity = colorIdentityUnion(commanders);
+      clauses.push(`id<=${identity.length ? identity.join("") : "c"}`);
+    }
   }
 
   // A deck's answer depends on its commander's colours. The browser says which colours it thinks the deck
@@ -59,8 +74,10 @@ export async function GET(request: Request) {
 
   try {
     const result = await searchAndCacheCards(clauses.join(" "), { order: "edhrec", unique: "cards", page });
+    // The query narrows the field; canPair is the exact rule (it also drops the first commander's other printings).
+    const cards = partner ? result.cards.filter((c) => c.name !== partner.name && canPair(partner, c).ok) : result.cards;
     return NextResponse.json(
-      { cards: result.cards.map(slimCard), hasMore: result.hasMore, totalCards: result.totalCards },
+      { cards: cards.map(slimCard), hasMore: result.hasMore, totalCards: result.totalCards },
       { headers: keep ? KEEP_FOR_A_DAY : DONT_KEEP }
     );
   } catch {

@@ -1,6 +1,8 @@
 import type { ScryfallCard } from "./scryfall-types";
 import type { CardMark } from "./card-mark";
 import { cardOracleText, colorIdentityUnion, isBackground, isBasicLand, isLegalCommander, isWithinColorIdentity } from "./card-helpers";
+import { canPair } from "./commander-pairs";
+import { companionIssues, isCompanion } from "./companion";
 
 export interface DeckCardEntry {
   card: ScryfallCard;
@@ -20,6 +22,8 @@ export interface ValidationResult {
   totalCards: number;
   commanderCount: number;
   mainboardCount: number;
+  // 0 or 1: the companion sits outside the 100 cards.
+  companionCount: number;
   colorIdentity: string[];
   issues: ValidationIssue[];
 }
@@ -30,39 +34,64 @@ function canBeUnlimited(card: ScryfallCard): boolean {
   return isBasicLand(card) || ANY_NUMBER_NAMED_RE.test(cardOracleText(card));
 }
 
-export function validateCommanderDeck(commanders: DeckCardEntry[], mainboard: DeckCardEntry[]): ValidationResult {
+export function validateCommanderDeck(commanders: DeckCardEntry[], mainboard: DeckCardEntry[], companions: DeckCardEntry[] = []): ValidationResult {
   const issues: ValidationIssue[] = [];
   const commanderCount = commanders.reduce((sum, e) => sum + e.quantity, 0);
   const mainboardCount = mainboard.reduce((sum, e) => sum + e.quantity, 0);
+  const companionCount = companions.reduce((sum, e) => sum + e.quantity, 0);
   const totalCards = commanderCount + mainboardCount;
   const colorIdentity = colorIdentityUnion(commanders.map((e) => e.card));
 
   if (commanders.length === 0) {
     issues.push({ severity: "error", message: "No commander selected." });
   } else if (commanders.length > 2) {
-    issues.push({ severity: "error", message: "A commander deck can have at most two commanders (Partner or Background)." });
+    issues.push({ severity: "error", message: "A commander deck can have at most two commanders (Partner, a Background, a Doctor's companion...)." });
   } else if (commanders.length === 1) {
     const [{ card }] = commanders;
     if (!isLegalCommander(card)) {
-      issues.push({ severity: "error", message: `${card.name} can't be a commander (not a legendary creature and has no "can be your commander" text).` });
+      issues.push({
+        severity: "error",
+        message: isBackground(card)
+          ? `${card.name} is a Background: it needs a commander with Choose a Background as its partner.`
+          : `${card.name} can't be a commander (not a legendary creature and has no "can be your commander" text).`,
+      });
     }
   } else {
     const [a, b] = commanders;
-    const backgroundPair =
-      (isBackground(a.card) && /choose a background/i.test(cardOracleText(b.card))) ||
-      (isBackground(b.card) && /choose a background/i.test(cardOracleText(a.card)));
-    const bothPartner = /\bpartner\b/i.test(cardOracleText(a.card)) && /\bpartner\b/i.test(cardOracleText(b.card));
-    if (!backgroundPair && !bothPartner) {
-      issues.push({
-        severity: "warning",
-        message: `${a.card.name} and ${b.card.name} may not be a legal commander pair — check for Partner or a Background.`,
-      });
+    const pair = canPair(a.card, b.card);
+    if (!pair.ok) {
+      // A card with no pairing ability we recognise might have one we don't know yet, so that case only warns.
+      issues.push(
+        pair.known
+          ? { severity: "error", message: `${a.card.name} and ${b.card.name} can't be commanders together. ${pair.reason}` }
+          : { severity: "warning", message: `${a.card.name} and ${b.card.name} may not be a legal commander pair — neither has Partner, a Background or similar.` }
+      );
     }
     for (const { card } of commanders) {
       if (!isLegalCommander(card) && !isBackground(card)) {
         issues.push({ severity: "error", message: `${card.name} can't be a commander.` });
       }
     }
+  }
+
+  if (companions.length > 1) {
+    issues.push({ severity: "error", message: "A deck can have only one companion." });
+  }
+  for (const { card } of companions.slice(0, 1)) {
+    if (!isCompanion(card)) {
+      issues.push({ severity: "error", message: `${card.name} isn't a companion.` });
+      continue;
+    }
+    if (commanders.length > 0 && !isWithinColorIdentity(card, colorIdentity)) {
+      issues.push({
+        severity: "error",
+        message: `Your companion ${card.name} (${card.color_identity.join("") || "C"}) is outside your commander's color identity (${colorIdentity.join("") || "C"}).`,
+      });
+    }
+    if (card.legalities?.commander && card.legalities.commander !== "legal") {
+      issues.push({ severity: "error", message: `Your companion ${card.name} is ${card.legalities.commander.replace("_", " ")} in Commander.` });
+    }
+    for (const message of companionIssues(card, [...commanders, ...mainboard])) issues.push({ severity: "warning", message });
   }
 
   if (totalCards !== 100) {
@@ -94,5 +123,5 @@ export function validateCommanderDeck(commanders: DeckCardEntry[], mainboard: De
     }
   }
 
-  return { totalCards, commanderCount, mainboardCount, colorIdentity, issues };
+  return { totalCards, commanderCount, mainboardCount, companionCount, colorIdentity, issues };
 }

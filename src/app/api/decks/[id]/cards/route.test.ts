@@ -276,3 +276,53 @@ describe("the owner dealing with a friend's suggestions", () => {
   });
 });
 
+
+describe("the companion", () => {
+  beforeEach(() => {
+    Object.values(mocks).forEach((m) => m.mockReset());
+    mocks.auth.mockResolvedValue({ user: { id: "owner-9" } });
+    mocks.deckFindFirst.mockResolvedValue({ id: "deck-1", userId: "owner-9" });
+    mocks.cardCount.mockResolvedValue(0);
+    mocks.transaction.mockResolvedValue([]);
+    mocks.getCardsByIds.mockResolvedValue(new Map([["lurrus", { id: "lurrus", name: "Lurrus of the Dream-Den" }]]));
+  });
+
+  it("is a single card, whatever quantity is asked for", async () => {
+    expect((await post({ scryfallId: "lurrus", zone: "companion", quantity: 5 })).status).toBe(201);
+    expect(mocks.cardUpsert.mock.calls[0][0]).toMatchObject({
+      where: { deckId_scryfallId_zone: { deckId: "deck-1", scryfallId: "lurrus", zone: "companion" } },
+      create: { zone: "companion", quantity: 1 },
+      update: { quantity: 1 },
+    });
+  });
+
+  it("can't be a second one: another companion must be removed first", async () => {
+    mocks.cardFindFirst.mockResolvedValue({ id: "row-1" });
+    const res = await post({ scryfallId: "lurrus", zone: "companion" });
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/only one companion/);
+    expect(mocks.cardUpsert).not.toHaveBeenCalled();
+    expect(mocks.cardFindFirst.mock.calls[0][0].where).toEqual({ deckId: "deck-1", zone: "companion", NOT: { scryfallId: "lurrus" } });
+  });
+
+  it("is chosen and removed from the commander panel, never moved to or from another zone", async () => {
+    mocks.cardFindUnique.mockResolvedValue({ name: "Lurrus", quantity: 1, zone: "companion", mark: null });
+    expect((await patch({ scryfallId: "card-1", zone: "companion", newZone: "mainboard" })).status).toBe(400);
+    mocks.cardFindUnique.mockResolvedValue({ name: "Sol Ring", quantity: 1, zone: "mainboard", mark: null });
+    expect((await patch({ scryfallId: "card-1", zone: "mainboard", newZone: "companion" })).status).toBe(400);
+    expect(mocks.transaction).not.toHaveBeenCalled();
+  });
+
+  it("is removed like any other card", async () => {
+    expect((await del("scryfallId=lurrus&zone=companion")).status).toBe(200);
+    expect(mocks.cardDeleteMany).toHaveBeenCalledWith({ where: { deckId: "deck-1", scryfallId: "lurrus", zone: "companion" } });
+  });
+
+  it("is the owner's alone: a friend can only suggest to the Maybeboard", async () => {
+    mocks.auth.mockResolvedValue({ user: { id: "friend-1" } });
+    mocks.deckFindFirst.mockResolvedValue({ id: "deck-1", userId: "owner-9", collaborators: [{ userId: "friend-1" }] });
+    expect((await post({ scryfallId: "lurrus", zone: "companion" })).status).toBe(403);
+    expect(mocks.cardUpsert).not.toHaveBeenCalled();
+    expect(mocks.cardCreate).not.toHaveBeenCalled();
+  });
+});

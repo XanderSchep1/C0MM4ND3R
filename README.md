@@ -191,5 +191,6 @@ scraping, just Scryfall's own documented search API.
 - `src/lib/combos.ts` — Commander Spellbook client + combo-opportunity matching
 - `src/lib/annoyance.ts` — the heuristic annoyance/"salt" classifier
 - `src/lib/land-fill.ts` — basic land auto-fill ratio calculation
+- `src/lib/commander-pairs.ts` / `src/lib/companion.ts` — who can share the command zone (Partner, Partner with, variants, Backgrounds, Doctors) and the Companion deck rules
 - `src/lib/deck-access.ts` / `src/lib/friends.ts` — who may do what on a deck, and how friends are made
 - `src/app/decks/[id]` — the deck builder page and its API routes

@@ -20,6 +20,8 @@ export interface ResolvedDeck {
   description: string | null;
   public: boolean;
   commanders: DeckCardEntry[];
+  // Zero or one: a companion sits outside the 100 cards.
+  companions: DeckCardEntry[];
   mainboard: DeckCardEntry[];
   maybeboard: DeckCardEntry[];
   unresolved: { scryfallId: string; name: string; zone: string; quantity: number }[];
@@ -41,6 +43,7 @@ export async function resolveDeck(
   const cardMap = await getCardsByIds(deck.cards.map((c) => c.scryfallId));
 
   const commanders: DeckCardEntry[] = [];
+  const companions: DeckCardEntry[] = [];
   const mainboard: DeckCardEntry[] = [];
   const maybeboard: DeckCardEntry[] = [];
   const unresolved: ResolvedDeck["unresolved"] = [];
@@ -55,6 +58,7 @@ export async function resolveDeck(
     if (options.withMarks) entry.mark = toMark(row.mark);
     if (options.withAuthors) entry.addedBy = row.addedBy ? { id: row.addedBy.id, name: personName(row.addedBy) } : null;
     if (row.zone === "commander") commanders.push(entry);
+    else if (row.zone === "companion") companions.push(entry);
     else if (row.zone === "maybeboard") maybeboard.push(entry);
     else mainboard.push(entry);
   }
@@ -66,6 +70,7 @@ export async function resolveDeck(
     description: deck.description,
     public: deck.public,
     commanders,
+    companions,
     mainboard,
     maybeboard,
     unresolved,

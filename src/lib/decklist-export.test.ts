@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DeckCardEntry } from "./commander";
-import { buildCardList, CARD_LIST_FORMATS } from "./decklist-export";
+import { buildCardList, buildExport, CARD_LIST_FORMATS } from "./decklist-export";
 import { parseDecklist } from "./decklist-parser";
 import type { ScryfallCard } from "./scryfall-types";
 
@@ -41,5 +41,28 @@ describe("buildCardList", () => {
     const copy = [...list];
     buildCardList(list, "text");
     expect(list.map((e) => e.card.name)).toEqual(copy.map((e) => e.card.name));
+  });
+});
+
+describe("exporting a deck with a companion", () => {
+  const deck = { commanders: [entry("Atraxa")], companions: [entry("Lurrus of the Dream-Den", 1, "iko", "226")], mainboard: [entry("Sol Ring")], maybeboard: [entry("Cyclonic Rift")] };
+  const round = (text: string) => parseDecklist(text).map((l) => `${l.zone}:${l.name}`);
+
+  it("gives the companion its own section (plain text, with set codes and Arena), which importing reads back", () => {
+    const text = buildExport(deck, "text");
+    expect(text).toContain("Companion\n1 Lurrus of the Dream-Den");
+    expect(round(text)).toContain("companion:Lurrus of the Dream-Den");
+    expect(buildExport(deck, "sets")).toContain("Companion\n1 Lurrus of the Dream-Den (IKO) 226");
+    expect(buildExport(deck, "arena")).toContain("Companion\n1 Lurrus of the Dream-Den (IKO) 226");
+    expect(round(buildExport(deck, "sets"))).toContain("companion:Lurrus of the Dream-Den");
+  });
+
+  it("goes in the sideboard for MTG Online and in its own zone in the CSV", () => {
+    expect(buildExport(deck, "mtgo")).toContain("SB: 1 Lurrus of the Dream-Den");
+    expect(buildExport(deck, "csv")).toContain("Companion,1,Lurrus of the Dream-Den,IKO,226,1.50");
+  });
+
+  it("leaves the section out when there's no companion", () => {
+    expect(buildExport({ ...deck, companions: [] }, "text")).not.toContain("Companion");
   });
 });

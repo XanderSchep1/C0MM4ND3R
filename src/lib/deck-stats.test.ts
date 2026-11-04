@@ -8,7 +8,7 @@ const card = (id: string, extra: Partial<ScryfallCard> = {}) =>
 
 describe("computeDeckStats", () => {
   it("changes as soon as a card is added, without a trip to the server", () => {
-    const empty: EditableDeck = { commanders: [], mainboard: [], maybeboard: [] };
+    const empty: EditableDeck = { commanders: [], companions: [], mainboard: [], maybeboard: [] };
     const before = computeDeckStats(empty);
     expect(before.validation.issues.some((i) => /commander/i.test(i.message))).toBe(true);
 
@@ -20,7 +20,7 @@ describe("computeDeckStats", () => {
   });
 
   it("ignores the maybeboard", () => {
-    const deck: EditableDeck = { commanders: [], mainboard: [], maybeboard: [{ card: card("maybe"), quantity: 1, mark: null }] };
+    const deck: EditableDeck = { commanders: [], companions: [], mainboard: [], maybeboard: [{ card: card("maybe"), quantity: 1, mark: null }] };
     expect(computeDeckStats(deck).analysis.nonlandCount).toBe(0);
   });
 });

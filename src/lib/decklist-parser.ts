@@ -1,4 +1,4 @@
-export type DeckZone = "commander" | "mainboard" | "maybeboard";
+export type DeckZone = "commander" | "companion" | "mainboard" | "maybeboard";
 
 export interface ParsedLine {
   quantity: number;
@@ -9,6 +9,8 @@ export interface ParsedLine {
 const SECTION_HEADERS: Record<string, DeckZone> = {
   commander: "commander",
   commanders: "commander",
+  companion: "companion",
+  companions: "companion",
   deck: "mainboard",
   mainboard: "mainboard",
   maindeck: "mainboard",
@@ -53,6 +55,11 @@ export function parseDecklist(text: string): ParsedLine[] {
     if (commanderPrefix) {
       body = commanderPrefix[1];
       lineZone = "commander";
+    }
+    const companionPrefix = body.match(/^Companion:\s*(.*)$/i);
+    if (companionPrefix) {
+      body = companionPrefix[1];
+      lineZone = "companion";
     }
 
     const match = body.match(LINE_RE);
