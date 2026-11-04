@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canPair, describeAbility, pairingAbilities, pairingGuide } from "./commander-pairs";
+import { canPair, describeAbility, pairingAbilities, pairingClause, pairingGuides } from "./commander-pairs";
 import type { ScryfallCard } from "./scryfall-types";
 
 const card = (name: string, extra: Partial<ScryfallCard> = {}) => ({ id: name, name, type_line: "Legendary Creature — Human", keywords: [], color_identity: [], ...extra }) as unknown as ScryfallCard;
@@ -120,31 +120,54 @@ describe("canPair", () => {
   });
 });
 
-describe("pairingGuide", () => {
-  it("says what the second slot is for", () => {
-    expect(pairingGuide(tymna)).toMatchObject({ label: "Add partner" });
-    expect(pairingGuide(will)).toMatchObject({ label: "Add Rowan Kenrith", clause: '!"Rowan Kenrith"' });
-    expect(pairingGuide(bjorna)).toMatchObject({ label: "Add Friends forever partner", clause: 'o:"Partner—Friends forever"' });
-    expect(pairingGuide(alora)).toMatchObject({ label: "Choose a Background", clause: "t:background" });
-    expect(pairingGuide(acolyte)).toMatchObject({ clause: 'keyword:"choose a background"' });
-    expect(pairingGuide(ace)).toMatchObject({ clause: 't:"time lord doctor"' });
-    expect(pairingGuide(doctor)).toMatchObject({ clause: `keyword:"doctor's companion"` });
+describe("pairingGuides", () => {
+  const options = (c: ScryfallCard) => pairingGuides(c).map((g) => g.option);
+
+  it("offers one choice per kind of pairing the first commander has", () => {
+    expect(options(tymna)).toEqual(["Partner"]);
+    expect(options(will)).toEqual(["Rowan Kenrith (Partner with)"]);
+    expect(options(bjorna)).toEqual(["Partner—Friends forever"]);
+    expect(options(alora)).toEqual(["Background"]);
+    expect(options(acolyte)).toEqual(["Commander with Choose a Background"]);
+    expect(options(ace)).toEqual(["Time Lord Doctor"]);
+    expect(options(doctor)).toEqual(["Doctor's companion"]);
+    expect(options(amy)).toEqual(["Rory Williams (Partner with)", "Time Lord Doctor"]);
   });
 
-  it("excludes Partner-with and variant cards from the plain-Partner search", () => {
-    expect(pairingGuide(tymna)!.clause).toBe('(keyword:partner -keyword:"partner with" -o:"Partner—")');
+  it("offers nothing for a commander with no pairing ability", () => {
+    expect(pairingGuides(atraxa)).toEqual([]);
   });
 
-  it("combines the options of a card with several abilities", () => {
-    expect(pairingGuide(amy)).toMatchObject({ label: "Add second commander", clause: '(!"Rory Williams" or t:"time lord doctor")' });
+  it("names what to search for in each", () => {
+    expect(pairingGuides(will)[0]).toMatchObject({ kind: "partner-with", search: "Search for Rowan Kenrith…", clause: '!"Rowan Kenrith"' });
+    expect(pairingGuides(alora)[0]).toMatchObject({ kind: "choose-a-background", search: "Search for a Background…" });
+  });
+});
+
+describe("pairingClause", () => {
+  it("finds exactly the cards that fit each kind", () => {
+    expect(pairingClause(tymna)).toBe('(keyword:partner -keyword:"partner with" -o:"Partner—")');
+    expect(pairingClause(will)).toBe('!"Rowan Kenrith"');
+    expect(pairingClause(bjorna)).toBe('o:"Partner—Friends forever"');
+    expect(pairingClause(alora)).toBe("t:background");
+    expect(pairingClause(acolyte)).toBe('keyword:"choose a background"');
+    expect(pairingClause(ace)).toBe('t:"time lord doctor"');
+    expect(pairingClause(doctor)).toBe(`keyword:"doctor's companion"`);
   });
 
-  it("has nothing to offer a commander with no pairing ability", () => {
-    expect(pairingGuide(atraxa)).toBeNull();
+  it("combines every kind a card has, or just the one asked for", () => {
+    expect(pairingClause(amy)).toBe('(!"Rory Williams" or t:"time lord doctor")');
+    expect(pairingClause(amy, "doctors-companion")).toBe('t:"time lord doctor"');
+    expect(pairingClause(amy, "partner-with")).toBe('!"Rory Williams"');
+  });
+
+  it("is null when there is nothing to restrict by (no ability, or a kind the card doesn't have)", () => {
+    expect(pairingClause(atraxa)).toBeNull();
+    expect(pairingClause(tymna, "choose-a-background")).toBeNull();
   });
 
   it("can't be broken out of by a card name with a quote in it", () => {
     const odd = card("Odd", { oracle_text: 'Partner with Bad "Name" (...)', keywords: ["Partner with"] });
-    expect(pairingGuide(odd)!.clause).toBe('!"Bad Name"');
+    expect(pairingClause(odd)).toBe('!"Bad Name"');
   });
 });

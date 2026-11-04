@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getCardsByIds, searchAndCacheCards } from "@/lib/cards";
 import { colorIdentityUnion } from "@/lib/card-helpers";
 import { searchScope } from "@/lib/search-scope";
-import { canPair, pairingGuide } from "@/lib/commander-pairs";
+import { canPair, pairingClause } from "@/lib/commander-pairs";
 import { slimCard } from "@/lib/slim-card";
 import type { ScryfallCard } from "@/lib/scryfall-types";
 
@@ -51,10 +51,11 @@ export async function GET(request: Request) {
   if (mode === "commander") {
     const partnerId = url.searchParams.get("partnerOf")?.slice(0, 64);
     const first = partnerId ? (await getCardsByIds([partnerId])).get(partnerId) : undefined;
-    const guide = first ? pairingGuide(first) : null;
-    if (first && guide) {
+    // `via` narrows it to one kind of pairing (the browser's choice: Partner, Background, ...).
+    const clause = first ? pairingClause(first, url.searchParams.get("via")?.slice(0, 40)) : null;
+    if (first && clause) {
       partner = first;
-      clauses.push(guide.clause);
+      clauses.push(clause);
     }
     clauses.push("(is:commander or t:background)");
   } else {
