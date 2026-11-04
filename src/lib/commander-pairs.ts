@@ -131,10 +131,12 @@ export function canPair(a: ScryfallCard, b: ScryfallCard): PairResult {
   return { ok: false, known, reason: `${wants(a, abilitiesA)}; ${wants(b, abilitiesB)}.` };
 }
 
-// What to look for when filling the second commander slot, given the first.
+// One thing the second commander can be, given the first: what to call it, how to search for it, what fits.
 export interface PairingGuide {
-  // The slot's button: "Add partner", "Choose a Background", ...
-  label: string;
+  // Which of the first commander's abilities this answers; also what the search route is told ("via").
+  kind: PairingAbility["kind"];
+  // How the choice is named when offering it: "Partner", "Background", ...
+  option: string;
   // The search box's placeholder: "Search for a partner…".
   search: string;
   // A Scryfall query clause that finds the candidates (they're checked again with canPair afterwards).
@@ -146,28 +148,35 @@ export interface PairingGuide {
 const quote = (text: string) => `"${text.replace(/"/g, "")}"`;
 
 function guideFor(ability: PairingAbility): PairingGuide {
+  const kind = ability.kind;
   switch (ability.kind) {
     case "partner":
-      return { label: "Add partner", search: "Search for a partner…", clause: `(keyword:partner -keyword:"partner with" -o:"Partner—")`, hint: "Any other commander with plain Partner." };
+      return { kind, option: "Partner", search: "Search for a partner…", clause: `(keyword:partner -keyword:"partner with" -o:"Partner—")`, hint: "Any other commander with plain Partner." };
     case "partner-with":
-      return { label: `Add ${ability.name}`, search: `Search for ${ability.name}…`, clause: `!${quote(FRONT(ability.name))}`, hint: `${ability.name} is the only partner this card can have.` };
+      return { kind, option: `${ability.name} (Partner with)`, search: `Search for ${ability.name}…`, clause: `!${quote(FRONT(ability.name))}`, hint: `${ability.name} is the only partner this card can have.` };
     case "partner-variant":
-      return { label: `Add ${ability.label} partner`, search: `Search for a Partner—${ability.label} commander…`, clause: `o:${quote(`Partner—${ability.label}`)}`, hint: `Another commander with Partner—${ability.label}.` };
+      return { kind, option: `Partner—${ability.label}`, search: `Search for a Partner—${ability.label} commander…`, clause: `o:${quote(`Partner—${ability.label}`)}`, hint: `Another commander with Partner—${ability.label}.` };
     case "choose-a-background":
-      return { label: "Choose a Background", search: "Search for a Background…", clause: "t:background", hint: "This commander can have a Background as its second commander." };
+      return { kind, option: "Background", search: "Search for a Background…", clause: "t:background", hint: "A Background as the second commander." };
     case "background":
-      return { label: "Add a commander", search: "Search for a commander that can choose a Background…", clause: `keyword:${quote("choose a background")}`, hint: "A Background needs a commander with Choose a Background." };
+      return { kind, option: "Commander with Choose a Background", search: "Search for a commander that can choose a Background…", clause: `keyword:${quote("choose a background")}`, hint: "A Background needs a commander with Choose a Background." };
     case "doctors-companion":
-      return { label: "Add a Doctor", search: "Search for a Time Lord Doctor…", clause: `t:${quote("time lord doctor")}`, hint: "A Doctor's companion pairs with a Time Lord Doctor." };
+      return { kind, option: "Time Lord Doctor", search: "Search for a Time Lord Doctor…", clause: `t:${quote("time lord doctor")}`, hint: "A Doctor's companion pairs with a Time Lord Doctor." };
     case "time-lord-doctor":
-      return { label: "Add a companion", search: "Search for a Doctor's companion…", clause: `keyword:${quote("doctor's companion")}`, hint: "A Time Lord Doctor pairs with a Doctor's companion." };
+      return { kind, option: "Doctor's companion", search: "Search for a Doctor's companion…", clause: `keyword:${quote("doctor's companion")}`, hint: "A Time Lord Doctor pairs with a Doctor's companion." };
   }
 }
 
-// null when the first commander has no way to pair with another (the second slot then isn't offered).
-export function pairingGuide(first: ScryfallCard): PairingGuide | null {
-  const guides = pairingAbilities(first).map(guideFor);
-  if (guides.length === 0) return null;
-  if (guides.length === 1) return guides[0];
-  return { label: "Add second commander", search: "Search for a second commander…", clause: `(${guides.map((g) => g.clause).join(" or ")})`, hint: guides.map((g) => g.hint).join(" ") };
+// What the first commander can be paired with, one entry per ability (none for a card with no way to pair).
+export function pairingGuides(first: ScryfallCard): PairingGuide[] {
+  return pairingAbilities(first).map(guideFor);
+}
+
+// The query clause for the second commander: restricted to one kind (`via`, a guide's kind) or, without one, to
+// anything the first commander can pair with. null when there is nothing to restrict by.
+export function pairingClause(first: ScryfallCard, via?: string | null): string | null {
+  const all = pairingGuides(first);
+  const chosen = via ? all.filter((g) => g.kind === via) : all;
+  if (chosen.length === 0) return null;
+  return chosen.length === 1 ? chosen[0].clause : `(${chosen.map((g) => g.clause).join(" or ")})`;
 }

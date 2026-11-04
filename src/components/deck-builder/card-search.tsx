@@ -14,6 +14,8 @@ interface Props {
   mode: "commander" | "companion" | "card";
   // Second-commander search: the id of the first commander, so only cards that can pair with it are offered.
   partnerOf?: string;
+  // Which kind of pairing to look for (a pairing guide's kind); without it, any the first commander has.
+  partnerVia?: string;
   placeholder?: string;
   onAdd: (card: ScryfallCard, zone: DeckZone) => void | Promise<void>;
   // The colours the deck's commander gives it (see searchScope). Lets the browser keep answers for a day.
@@ -31,7 +33,7 @@ const SLOTS = {
   companion: { zone: "companion", noun: "companion", button: "Set companion", placeholder: "Search for a companion by name…", label: "Search for a companion" },
 } as const;
 
-export function CardSearch({ deckId, mode, onAdd, partnerOf, placeholder, scope = "", focusSignal = 0 }: Props) {
+export function CardSearch({ deckId, mode, onAdd, partnerOf, partnerVia, placeholder, scope = "", focusSignal = 0 }: Props) {
   const slot = mode === "card" ? null : SLOTS[mode];
   const suggesting = useSuggesting();
   const { inBudget } = useBudget();
@@ -104,6 +106,7 @@ export function CardSearch({ deckId, mode, onAdd, partnerOf, placeholder, scope 
         const params = new URLSearchParams({ q: query, mode, deckId, v: SEARCH_CACHE_VERSION });
         if (scope) params.set("scope", scope);
         if (partnerOf) params.set("partnerOf", partnerOf);
+        if (partnerOf && partnerVia) params.set("via", partnerVia);
         const data = await fetch(`/api/scryfall/search?${params}`, { signal: controller.signal }).then((r) => r.json());
         if (stale) return;
         const results: ScryfallCard[] = data.cards ?? [];
@@ -128,7 +131,7 @@ export function CardSearch({ deckId, mode, onAdd, partnerOf, placeholder, scope 
       clearTimeout(handle);
       controller.abort();
     };
-  }, [query, mode, deckId, scope, partnerOf]);
+  }, [query, mode, deckId, scope, partnerOf, partnerVia]);
 
   async function handleAdd(card: ScryfallCard, zone: DeckZone) {
     setAddingId(card.id + zone);

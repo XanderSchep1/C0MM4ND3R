@@ -125,6 +125,20 @@ describe("GET /api/scryfall/search — commander pairs and companions", () => {
     }
   });
 
+  it("can be narrowed to one kind of pairing, and ignores a kind the card doesn't have", async () => {
+    const amy = card("Amy Pond", { oracle_text: "Partner with Rory Williams (...)\nDoctor's companion", keywords: ["Partner with", "Doctor's companion"] });
+    known.set(amy.id, amy);
+    mocks.searchAndCacheCards.mockResolvedValue({ cards: [], hasMore: false, totalCards: 0 });
+    await search({ q: "x", mode: "commander", partnerOf: "Amy Pond", via: "doctors-companion" });
+    expect(mocks.searchAndCacheCards.mock.calls[0][0]).toBe('x f:commander t:"time lord doctor" (is:commander or t:background)');
+    mocks.searchAndCacheCards.mockClear();
+    await search({ q: "x", mode: "commander", partnerOf: "Amy Pond" });
+    expect(mocks.searchAndCacheCards.mock.calls[0][0]).toBe('x f:commander (!"Rory Williams" or t:"time lord doctor") (is:commander or t:background)');
+    mocks.searchAndCacheCards.mockClear();
+    await search({ q: "x", mode: "commander", partnerOf: "Tymna the Weaver", via: "choose-a-background" });
+    expect(mocks.searchAndCacheCards.mock.calls[0][0]).toBe("x f:commander (is:commander or t:background)");
+  });
+
   it("lets the browser keep a partner search, since it depends on nothing but the request", async () => {
     mocks.searchAndCacheCards.mockResolvedValue({ cards: [rowan], hasMore: false, totalCards: 1 });
     expect((await search({ q: "kenrith", mode: "commander", partnerOf: "Will Kenrith" })).headers.get("Cache-Control")).toBe("private, max-age=86400");
