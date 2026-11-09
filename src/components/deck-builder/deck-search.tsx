@@ -5,6 +5,7 @@ import { BudgetControl } from "./budget";
 import { WIDE_TILE_GRID_CLASS } from "./card-tile";
 import { CardSearch } from "./card-search";
 import { KeywordSearch } from "./keyword-search";
+import { TypeSearch } from "./type-search";
 import type { DeckZone, ScryfallCard } from "./types";
 
 interface Props {
@@ -16,14 +17,15 @@ interface Props {
   onAdd: (card: ScryfallCard, zone: DeckZone) => void | Promise<void>;
 }
 
-type Kind = "card" | "keyword";
+type Kind = "card" | "keyword" | "type";
 
 const KINDS: { kind: Kind; label: string }[] = [
   { kind: "card", label: "Card" },
   { kind: "keyword", label: "Keyword" },
+  { kind: "type", label: "Type" },
 ];
 
-// The search that sits above the decklist: one box for a card you have in mind, one for "what cards do X".
+// The search that sits above the decklist: one box for a card you have in mind, one for "what cards do X", and one for a creature type.
 export function DeckSearch({ deckId, scope, focusSignal, onAdd }: Props) {
   const [kind, setKind] = useState<Kind>("card");
   // Counts clicks on the toggle, so switching also puts the cursor in the box you switched to.
@@ -62,6 +64,9 @@ export function DeckSearch({ deckId, scope, focusSignal, onAdd }: Props) {
       </div>
       <div hidden={kind !== "keyword"}>
         <KeywordSearch deckId={deckId} scope={scope} focusSignal={focusFor("keyword")} gridClass={WIDE_TILE_GRID_CLASS} onAdd={onAdd} />
+      </div>
+      <div hidden={kind !== "type"}>
+        <TypeSearch deckId={deckId} scope={scope} focusSignal={focusFor("type")} gridClass={WIDE_TILE_GRID_CLASS} onAdd={onAdd} />
       </div>
     </div>
   );

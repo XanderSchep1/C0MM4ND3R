@@ -110,6 +110,13 @@ export async function autocomplete(query: string): Promise<string[]> {
   return res.data;
 }
 
+// Every creature type there is (Elf, Goblin, Time Lord...), for the Type search's quick picks.
+export async function getCreatureTypes(): Promise<string[]> {
+  // A new type appears only with a new set, so a day-old list is as good as a fresh one.
+  const res = await request<{ object: "catalog"; data: string[] }>("default", "/catalog/creature-types", undefined, 24 * 60 * 60);
+  return res.data;
+}
+
 export interface CollectionIdentifier {
   id?: string;
   name?: string;
