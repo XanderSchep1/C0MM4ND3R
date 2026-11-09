@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-11-09
+
+### New
+- **A deck's link is open: paste it and anyone can look through the deck.** The address of a deck page (`/decks/…`, the one in your browser's address bar) now opens for anyone it's shared with, signed in or not. They see the commander, companion, stats, Mainboard and Maybeboard, read-only, under a note that invites them to **Create account** (or **Sign in**); the **Create account** button opens the sign-in page on the right tab. A signed-in stranger gets the same view with a **My decks** button. It shows no highlights, no names of who suggested what, and not the owner's name. In a chat the link now previews with the deck's name and commander. **Copy link** (next to **Shared — click to unshare**) copies that same address, and links copied from the old `/share/…` address still work (they send you to the new one).
+- **New decks start open to anyone with the link.** Press **Shared — click to unshare** to make one private; then only you and the friends you invited can open it (everyone else gets the sign-in page or a "not found"). Decks you made before today keep their setting: press **Share** on each one you want to send.
+
+### Changed
+- **Search moved above the decklist, with a Card / Keyword switch.** It used to be two tabs in the narrow column under the commander; it now sits at the top of the wide column, above the Mainboard (and above everything on a phone), with the Budget setting next to it. **Card** finds a card by name (or Scryfall syntax); **Keyword** finds cards by what they do. Switching puts the cursor in the other box and keeps what you typed in each, and `/` focuses whichever one is showing. Results use the extra width: up to five cards across. The sidebar tabs are now Suggestions, Synergies and the rest, with Suggestions open by default; friends invited to a deck get the same search (it suggests instead of adding).
+
 ## 2026-11-04
 
 ### New

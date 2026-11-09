@@ -200,3 +200,4 @@ scraping, just Scryfall's own documented search API.
 - `src/lib/commander-pairs.ts` / `src/lib/companion.ts` — who can share the command zone (Partner, Partner with, variants, Backgrounds, Doctors) and the Companion deck rules
 - `src/lib/deck-access.ts` / `src/lib/friends.ts` — who may do what on a deck, and how friends are made
 - `src/app/decks/[id]` — the deck builder page and its API routes
+- `src/lib/public-deck.ts` / `src/components/shared-deck-view.tsx` — what anyone with a deck's link sees: `/decks/[id]` shows the builder to the owner and invited friends, and this read-only view to everyone else when the deck's `public` flag is on (new decks start with it on; the cuid in the address is the unguessable token). `/share/[id]` just redirects there.

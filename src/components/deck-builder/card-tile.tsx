@@ -19,6 +19,8 @@ export function tileButtonClass(variant: "primary" | "secondary"): string {
 // browsers (Safari) shrink the rows until the whole grid fits, which squashes every
 // tile down to its art and hides the price and the Add / Maybe buttons.
 export const TILE_GRID_CLASS = "grid max-h-[520px] auto-rows-max grid-cols-3 content-start gap-2 overflow-y-auto";
+// The same for the wide column next to the sidebar, where more tiles fit across.
+export const WIDE_TILE_GRID_CLASS = "grid max-h-[520px] auto-rows-max grid-cols-3 content-start gap-2 overflow-y-auto sm:grid-cols-4 lg:grid-cols-5";
 
 // `active` outlines the tile that pressing Enter would add (keyboard quick-add in the search box).
 export function cardTileId(cardId: string): string {

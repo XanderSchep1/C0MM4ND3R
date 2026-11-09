@@ -22,6 +22,8 @@ interface Props {
   scope?: string;
   // Bump this number to focus the search box (the deck page does it when you press "/").
   focusSignal?: number;
+  // How the result tiles are laid out; the default suits the narrow sidebar.
+  gridClass?: string;
 }
 
 const LOOKS_LIKE_SYNTAX = /[a-z!@-]+[:=]|[<>]=?/i;
@@ -33,7 +35,7 @@ const SLOTS = {
   companion: { zone: "companion", noun: "companion", button: "Set companion", placeholder: "Search for a companion by name…", label: "Search for a companion" },
 } as const;
 
-export function CardSearch({ deckId, mode, onAdd, partnerOf, partnerVia, placeholder, scope = "", focusSignal = 0 }: Props) {
+export function CardSearch({ deckId, mode, onAdd, partnerOf, partnerVia, placeholder, scope = "", focusSignal = 0, gridClass = TILE_GRID_CLASS }: Props) {
   const slot = mode === "card" ? null : SLOTS[mode];
   const suggesting = useSuggesting();
   const { inBudget } = useBudget();
@@ -247,7 +249,7 @@ export function CardSearch({ deckId, mode, onAdd, partnerOf, partnerVia, placeho
       {error && !loading && <p className="text-xs text-black/40 dark:text-white/40">{error}</p>}
       {cards.length > 0 && <OverBudgetNote hidden={split.hidden.length} showing={showOverBudget} onToggle={() => setShowOverBudget((s) => !s)} />}
       {cards.length > 0 && (
-        <div className={TILE_GRID_CLASS}>
+        <div className={gridClass}>
           {visible.map((card, i) => (
             <CardTile
               key={card.id}

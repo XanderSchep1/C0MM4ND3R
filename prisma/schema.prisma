@@ -131,7 +131,7 @@ model Deck {
   name        String
   format      String   @default("commander")
   description String?
-  // When true, /share/[id] renders a read-only view with no auth required.
+  // When true, anyone with the link (/decks/[id]) gets a read-only view, signed in or not. New decks start true.
   // The id itself (a cuid) is the unguessable share token — no separate slug.
   public      Boolean  @default(false)
   // Scryfall set codes whose upgrade suggestions the owner has already

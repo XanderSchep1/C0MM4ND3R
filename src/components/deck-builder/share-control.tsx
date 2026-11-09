@@ -11,7 +11,8 @@ interface Props {
 export function ShareControl({ deckId, isPublic, onToggle }: Props) {
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
-  const shareUrl = typeof window !== "undefined" ? `${window.location.origin}/share/${deckId}` : `/share/${deckId}`;
+  // The deck's own address, the same one in the address bar: whoever opens it can look through the deck.
+  const shareUrl = typeof window !== "undefined" ? `${window.location.origin}/decks/${deckId}` : `/decks/${deckId}`;
 
   async function toggle() {
     setBusy(true);
@@ -33,14 +34,16 @@ export function ShareControl({ deckId, isPublic, onToggle }: Props) {
       {isPublic && (
         <button
           onClick={copyLink}
+          title="Copy the link. Anyone who opens it can look through this deck (they can't change it)."
           className="rounded-md border border-black/15 px-3 py-1.5 text-xs font-medium hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
         >
-          {copied ? "Copied!" : "Copy share link"}
+          {copied ? "Copied!" : "Copy link"}
         </button>
       )}
       <button
         onClick={toggle}
         disabled={busy}
+        title={isPublic ? "Anyone with the link can look through this deck. Click to stop sharing." : "Let anyone with the link look through this deck (read-only)."}
         className={`rounded-md border px-3 py-1.5 text-xs font-medium disabled:opacity-40 ${
           isPublic
             ? "border-[#0ca30c]/40 bg-[#0ca30c]/10 text-[#0ca30c]"

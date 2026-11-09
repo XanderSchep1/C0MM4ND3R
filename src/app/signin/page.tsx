@@ -1,7 +1,8 @@
 import { signIn } from "@/auth";
 import { AuthForm } from "@/components/auth-form";
 
-export default function SignInPage() {
+export default async function SignInPage({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
+  const { mode } = await searchParams;
   return (
     <div className="mx-auto flex max-w-sm flex-col gap-6 px-4 py-16">
       <div>
@@ -9,7 +10,7 @@ export default function SignInPage() {
         <p className="mt-1 text-sm text-black/60 dark:text-white/60">Sign in, or create an account, to build and tune your Commander decks.</p>
       </div>
 
-      <AuthForm />
+      <AuthForm initialMode={mode === "register" ? "register" : "signin"} />
 
       {process.env.NODE_ENV !== "production" && (
         <div className="border-t border-black/10 pt-6 dark:border-white/10">

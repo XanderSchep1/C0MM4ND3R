@@ -14,13 +14,17 @@ interface Props {
   onAdd: (card: ScryfallCard, zone: DeckZone) => void | Promise<void>;
   // The colours the deck's commander gives it (see searchScope). Lets the browser keep answers for a day.
   scope?: string;
+  // Bump this number to focus the search box.
+  focusSignal?: number;
+  // How the result tiles are laid out; the default suits the narrow sidebar.
+  gridClass?: string;
 }
 
 // Separate from CardSearch (name lookup for a card you already know) — this
 // is for discovery: "what cards do X", by searching oracle text for a word
 // or phrase, then presenting matches as a suggested-adds list rather than a
 // quick single-card lookup.
-export function KeywordSearch({ deckId, onAdd, scope = "" }: Props) {
+export function KeywordSearch({ deckId, onAdd, scope = "", focusSignal = 0, gridClass = TILE_GRID_CLASS }: Props) {
   const suggesting = useSuggesting();
   const { inBudget } = useBudget();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -33,6 +37,13 @@ export function KeywordSearch({ deckId, onAdd, scope = "" }: Props) {
 
   const split = splitByBudget(cards, inBudget);
   const visible = showOverBudget ? [...split.shown, ...split.hidden] : split.shown;
+
+  useEffect(() => {
+    if (!focusSignal) return;
+    inputRef.current?.focus();
+    inputRef.current?.select();
+    inputRef.current?.scrollIntoView({ block: "nearest" });
+  }, [focusSignal]);
 
   useEffect(() => {
     // Flips when the term changes, so a slow answer to an earlier term can't replace the answer to a later one.
@@ -92,6 +103,7 @@ export function KeywordSearch({ deckId, onAdd, scope = "" }: Props) {
         value={term}
         onChange={(e) => setTerm(e.target.value)}
         placeholder="Search by keyword or ability… (e.g. flying, lifelink, draw a card)"
+        aria-label="Search cards by keyword"
         className="rounded-md border border-black/15 px-3 py-2 text-sm dark:border-white/15 dark:bg-black"
       />
       {loading && <p className="text-xs text-black/40 dark:text-white/40">Searching oracle text…</p>}
@@ -102,7 +114,7 @@ export function KeywordSearch({ deckId, onAdd, scope = "" }: Props) {
             Suggested adds using &quot;{term.trim()}&quot;, sorted by Commander popularity:
           </p>
           <OverBudgetNote hidden={split.hidden.length} showing={showOverBudget} onToggle={() => setShowOverBudget((s) => !s)} />
-          <div className={TILE_GRID_CLASS}>
+          <div className={gridClass}>
             {visible.map((card) => (
               <CardTile
                 key={card.id}

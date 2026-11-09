@@ -1,18 +1,35 @@
 import { redirect, notFound } from "next/navigation";
+import type { Metadata } from "next";
 import { auth } from "@/auth";
 import { getDeckAccessWithCards, personName } from "@/lib/deck-access";
 import { resolveDeck } from "@/lib/deck-data";
+import { deckDescription, loadPublicDeck, loadPublicDeckSummary } from "@/lib/public-deck";
 import { getRecentSets } from "@/lib/sets";
 import { DeckBuilder } from "@/components/deck-builder/deck-builder";
+import { SharedDeckView } from "@/components/shared-deck-view";
+
+// What a pasted link shows in a chat or a browser tab. A deck that isn't open to anyone with the link keeps the site's title.
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const summary = await loadPublicDeckSummary((await params).id);
+  if (!summary) return {};
+  return { title: `${summary.name} — C0MM4ND3R`, description: deckDescription(summary) };
+}
 
 export default async function DeckPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
-  if (!session?.user?.id) redirect("/signin");
-
-  // Your own deck, or one a friend invited you to. Anyone else gets a plain "not found".
+  const userId = session?.user?.id;
   const { id } = await params;
-  const access = await getDeckAccessWithCards(id, session.user.id);
-  if (!access) notFound();
+
+  // Your own deck, or one a friend invited you to, opens in the builder.
+  const access = userId ? await getDeckAccessWithCards(id, userId) : null;
+  if (!access || !userId) {
+    // Anyone else (signed in or not) can look through a deck its owner has opened to anyone with the link.
+    const shared = await loadPublicDeck(id);
+    if (shared) return <SharedDeckView deck={shared} signedIn={Boolean(userId)} />;
+    // Otherwise it's private: sign in to find out whether it's yours, and a plain "not found" if it isn't.
+    if (!userId) redirect("/signin");
+    notFound();
+  }
   const { deck, role } = access;
 
   // Highlights are the owner's private notes; everyone with access sees who suggested which card.
@@ -31,7 +48,7 @@ export default async function DeckPage({ params }: { params: Promise<{ id: strin
       initialDeck={resolved}
       newSetCount={newSetCount}
       role={role}
-      viewer={{ id: session.user.id, name: personName({ name: session.user.name ?? null, email: session.user.email ?? null }) }}
+      viewer={{ id: userId, name: personName({ name: session?.user?.name ?? null, email: session?.user?.email ?? null }) }}
       ownerName={personName(deck.user)}
     />
   );
