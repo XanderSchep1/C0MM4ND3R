@@ -2,6 +2,7 @@
 
 import { ColorPips } from "./color-pips";
 import { ManaCurveChart } from "./mana-curve-chart";
+import { CreatureTypesChart } from "./creature-types-chart";
 import type { DeckAnalysis, PowerLevelEstimate, PriceTotal } from "./types";
 
 function formatUsd(amount: number): string {
@@ -69,6 +70,8 @@ export function StatsPanel({
       </div>
 
       <ManaCurveChart curve={analysis.curve} />
+
+      <CreatureTypesChart types={analysis.creatureTypes} />
 
       <div className="flex flex-col gap-1.5">
         <span className="text-xs font-medium text-black/60 dark:text-white/60">Deck composition</span>
