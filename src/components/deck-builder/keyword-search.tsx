@@ -1,12 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { buildKeywordClause } from "@/lib/search-query";
-import { SEARCH_CACHE_VERSION } from "@/lib/search-scope";
-import { useSuggesting } from "./suggest-mode";
-import { CardTile, TILE_GRID_CLASS, tileButtonClass } from "./card-tile";
-import { OverBudgetNote, useBudget } from "./budget";
-import { splitByBudget } from "@/lib/budget-filter";
+import { ClauseSearch } from "./clause-search";
 import type { ScryfallCard, DeckZone } from "./types";
 
 interface Props {
@@ -20,130 +16,22 @@ interface Props {
   gridClass?: string;
 }
 
-// Separate from CardSearch (name lookup for a card you already know) — this
-// is for discovery: "what cards do X", by searching oracle text for a word
-// or phrase, then presenting matches as a suggested-adds list rather than a
-// quick single-card lookup.
-export function KeywordSearch({ deckId, onAdd, scope = "", focusSignal = 0, gridClass = TILE_GRID_CLASS }: Props) {
-  const suggesting = useSuggesting();
-  const { inBudget } = useBudget();
+// Discovery by rules text: "what cards do X", by searching oracle text for a word or phrase.
+export function KeywordSearch(props: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [term, setTerm] = useState("");
-  const [cards, setCards] = useState<ScryfallCard[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [addingId, setAddingId] = useState<string | null>(null);
-  const [showOverBudget, setShowOverBudget] = useState(false);
-
-  const split = splitByBudget(cards, inBudget);
-  const visible = showOverBudget ? [...split.shown, ...split.hidden] : split.shown;
-
-  useEffect(() => {
-    if (!focusSignal) return;
-    inputRef.current?.focus();
-    inputRef.current?.select();
-    inputRef.current?.scrollIntoView({ block: "nearest" });
-  }, [focusSignal]);
-
-  useEffect(() => {
-    // Flips when the term changes, so a slow answer to an earlier term can't replace the answer to a later one.
-    let stale = false;
-    const controller = new AbortController();
-    const handle = setTimeout(async () => {
-      const clause = buildKeywordClause(term);
-      if (!clause) {
-        setCards([]);
-        setError(null);
-        setLoading(false);
-        return;
-      }
-      setLoading(true);
-      setError(null);
-      try {
-        const params = new URLSearchParams({ q: clause, mode: "card", deckId, v: SEARCH_CACHE_VERSION });
-        if (scope) params.set("scope", scope);
-        const res = await fetch(`/api/scryfall/search?${params}`, { signal: controller.signal });
-        const data = await res.json();
-        if (stale) return;
-        setCards(data.cards ?? []);
-        if (data.error) setError(data.error);
-        else if ((data.cards ?? []).length === 0) setError("No cards found using that keyword in your colors.");
-      } catch {
-        if (!stale) setError("Search failed. Try again.");
-      } finally {
-        if (!stale) setLoading(false);
-      }
-    }, 200);
-    return () => {
-      stale = true;
-      clearTimeout(handle);
-      controller.abort();
-    };
-  }, [term, deckId, scope]);
-
-  async function handleAdd(card: ScryfallCard, zone: DeckZone) {
-    setAddingId(card.id + zone);
-    try {
-      await onAdd(card, zone);
-      setCards((prev) => (zone === "mainboard" ? prev.filter((c) => c.id !== card.id) : prev));
-      // Back to the search box so the next keyword is one keystroke away (not on touch screens: it would pop the keyboard up).
-      if (window.matchMedia("(pointer: fine)").matches) {
-        inputRef.current?.focus({ preventScroll: true });
-        inputRef.current?.select();
-      }
-    } finally {
-      setAddingId(null);
-    }
-  }
-
   return (
-    <div className="flex flex-col gap-3">
-      <input
-        ref={inputRef}
-        value={term}
-        onChange={(e) => setTerm(e.target.value)}
-        placeholder="Search by keyword or ability… (e.g. flying, lifelink, draw a card)"
-        aria-label="Search cards by keyword"
-        className="rounded-md border border-black/15 px-3 py-2 text-sm dark:border-white/15 dark:bg-black"
-      />
-      {loading && <p className="text-xs text-black/40 dark:text-white/40">Searching oracle text…</p>}
-      {error && !loading && <p className="text-xs text-black/40 dark:text-white/40">{error}</p>}
-      {cards.length > 0 && (
-        <>
-          <p className="text-xs text-black/50 dark:text-white/50">
-            Suggested adds using &quot;{term.trim()}&quot;, sorted by Commander popularity:
-          </p>
-          <OverBudgetNote hidden={split.hidden.length} showing={showOverBudget} onToggle={() => setShowOverBudget((s) => !s)} />
-          <div className={gridClass}>
-            {visible.map((card) => (
-              <CardTile
-                key={card.id}
-                card={card}
-                actions={
-                  <>
-                    <button
-                      onClick={() => handleAdd(card, "mainboard")}
-                      disabled={addingId === card.id + "mainboard"}
-                      className={tileButtonClass("primary")}
-                    >
-                      {suggesting ? "Suggest" : "Add"}
-                    </button>
-                    {!suggesting && (
-                      <button
-                        onClick={() => handleAdd(card, "maybeboard")}
-                        disabled={addingId === card.id + "maybeboard"}
-                        className={tileButtonClass("secondary")}
-                      >
-                        Maybe
-                      </button>
-                    )}
-                  </>
-                }
-              />
-            ))}
-          </div>
-        </>
-      )}
-    </div>
+    <ClauseSearch
+      {...props}
+      term={term}
+      onTermChange={setTerm}
+      clause={buildKeywordClause(term)}
+      inputRef={inputRef}
+      placeholder="Search by keyword or ability… (e.g. flying, lifelink, draw a card)"
+      label="Search cards by keyword"
+      loadingText="Searching oracle text…"
+      emptyText="No cards found using that keyword in your colors."
+      resultsText={(typed) => `Suggested adds using "${typed.trim()}", sorted by Commander popularity:`}
+    />
   );
 }

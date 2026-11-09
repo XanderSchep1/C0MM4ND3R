@@ -170,7 +170,7 @@ production automatically. `vercel deploy --prod` still works for a manual deploy
 ## How card search stays fast
 
 Search answers are cached in three places, each good for a day. The browser keeps every answer (`Cache-Control: private, max-age=86400`
-on `/api/scryfall/search` and `/autocomplete`), so repeating a search costs nothing. Postgres keeps the answer to every search
+on `/api/scryfall/search`, `/autocomplete` and `/creature-types`, the Type search's quick picks), so repeating a search costs nothing. Postgres keeps the answer to every search
 (`SearchCache`, with the cards in `CardCache`), shared by everyone and written after the response has gone out, so a first-time search
 waits only for Scryfall. Next's fetch cache keeps Scryfall's own answers. A deck's card search depends on its commander's colours, so
 the browser sends the colours it believes the deck has (`scope`, see `src/lib/search-scope.ts`) and the server only lets the answer be

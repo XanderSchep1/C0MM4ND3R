@@ -16,3 +16,20 @@ export function buildKeywordClause(raw: string): string {
   if (!trimmed || ADVANCED_SYNTAX_RE.test(trimmed)) return trimmed;
   return `o:"${escapeQuotes(trimmed)}"`;
 }
+
+// The Type search: every word typed is a creature type the card must have ("elf warrior" finds Elf Warriors),
+// and `changelings` also lets through Changelings, which count as every type. `t:` matches part of a type, so
+// "gobl" finds Goblins. Each clause stands alone (an `or` is always inside its own brackets) because the search
+// route puts more filters after it. Anything with an operator in it (`t:elf`) is left alone, as in the keyword search.
+const OPERATOR_RE = /[a-z!@-]+[:=]|[<>]=?/i;
+
+export function buildTypeClause(raw: string, opts: { changelings?: boolean } = {}): string {
+  const trimmed = raw.trim();
+  if (!trimmed || OPERATOR_RE.test(trimmed)) return trimmed;
+  return trimmed
+    .split(/\s+/)
+    .map((word) => word.replace(/[^\p{L}\p{N}'-]/gu, ""))
+    .filter((word) => /[\p{L}\p{N}]/u.test(word))
+    .map((word) => (opts.changelings ? `(t:"${word}" or keyword:changeling)` : `t:"${word}"`))
+    .join(" ");
+}
