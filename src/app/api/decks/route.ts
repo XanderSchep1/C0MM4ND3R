@@ -32,8 +32,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: `You've reached the limit of ${MAX_DECKS_PER_USER} decks. Delete one to make room.` }, { status: 400 });
   }
 
+  // New decks are open to anyone with the link (read-only), so a pasted address just works.
+  // The owner can turn that off from the deck page.
   const deck = await prisma.deck.create({
-    data: { userId: session.user.id, name, format: "commander" },
+    data: { userId: session.user.id, name, format: "commander", public: true },
   });
 
   return NextResponse.json({ deck }, { status: 201 });

@@ -56,10 +56,10 @@ export function useBudget(): Budget {
   return useContext(BudgetContext);
 }
 
-export function BudgetControl() {
+export function BudgetControl({ className = "mb-2" }: { className?: string }) {
   const { max, setMax } = useBudget();
   return (
-    <label className="mb-2 flex flex-wrap items-center gap-2 text-xs text-black/60 dark:text-white/60">
+    <label className={`flex flex-wrap items-center gap-2 text-xs text-black/60 dark:text-white/60 ${className}`}>
       <span className="font-medium">Budget</span>
       <select
         value={max ?? ""}

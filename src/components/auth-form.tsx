@@ -9,9 +9,10 @@ import { registerAction, signInAction, type FormState } from "@/app/signin/actio
 const inputClass = "rounded-md border border-black/15 px-3 py-2 text-sm dark:border-white/15 dark:bg-black";
 const initial: FormState = {};
 
-export function AuthForm() {
+// `initialMode` lets a "Create account" link open the form on the right tab.
+export function AuthForm({ initialMode = "signin" }: { initialMode?: "signin" | "register" }) {
   const router = useRouter();
-  const [mode, setMode] = useState<"signin" | "register">("signin");
+  const [mode, setMode] = useState<"signin" | "register">(initialMode);
   const [signInState, signInFormAction, signInPending] = useActionState(signInAction, initial);
   const [registerState, registerFormAction, registerPending] = useActionState(registerAction, initial);
 

@@ -5,8 +5,7 @@ import { useRouter } from "next/navigation";
 import { CommanderPanel } from "./commander-panel";
 import { ValidationBanner } from "./validation-banner";
 import { StatsPanel } from "./stats-panel";
-import { CardSearch } from "./card-search";
-import { KeywordSearch } from "./keyword-search";
+import { DeckSearch } from "./deck-search";
 import { ImportPanel } from "./import-panel";
 import { ExportPanel } from "./export-panel";
 import { SuggestionsPanel } from "./suggestions-panel";
@@ -44,16 +43,16 @@ interface Props {
   ownerName: string;
 }
 
-type Tab = "search" | "keyword" | "import" | "export" | "suggestions" | "synergies" | "combos" | "salt" | "simulate" | "upgrades" | "newcards" | "lands" | "playtest";
+type Tab = "import" | "export" | "suggestions" | "synergies" | "combos" | "salt" | "simulate" | "upgrades" | "newcards" | "lands" | "playtest";
 
 const SORT_STORAGE_KEY = "deck-list-sort";
 
 // "Upgrades" looks for cheaper / pricier replacements for the cards you have; "New cards" checks recently released sets.
 const TAB_LABELS: Partial<Record<Tab, string>> = { newcards: "New cards" };
 
-const OWNER_TABS: Tab[] = ["search", "keyword", "import", "export", "suggestions", "synergies", "combos", "salt", "simulate", "upgrades", "newcards", "lands", "playtest"];
-// A friend invited to the deck only needs to find cards to suggest.
-const FRIEND_TABS: Tab[] = ["search", "keyword", "suggestions", "synergies"];
+const OWNER_TABS: Tab[] = ["import", "export", "suggestions", "synergies", "combos", "salt", "simulate", "upgrades", "newcards", "lands", "playtest"];
+// A friend invited to the deck only needs ideas for cards to suggest (searching sits above the decklist for everyone).
+const FRIEND_TABS: Tab[] = ["suggestions", "synergies"];
 
 export function DeckBuilder({ deckId, initialDeck, newSetCount, role, viewer, ownerName }: Props) {
   const router = useRouter();
@@ -63,7 +62,7 @@ export function DeckBuilder({ deckId, initialDeck, newSetCount, role, viewer, ow
   const { validation, analysis, powerLevel, priceTotal, annoyance } = stats;
   // Adds from the search and suggestion tabs say so ("Added … · Undo"), so it shows wherever the page is scrolled.
   const addAnnounced = (card: ScryfallCard, zone: DeckZone) => addCard(card, zone, 1, { announce: true });
-  const [tab, setTab] = useState<Tab>("search");
+  const [tab, setTab] = useState<Tab>("suggestions");
   const [searchFocus, setSearchFocus] = useState(0);
   // The card whose art is being chosen, and which part of the deck it's in.
   const [artFor, setArtFor] = useState<{ card: ScryfallCard; zone: DeckZone } | null>(null);
@@ -94,14 +93,13 @@ export function DeckBuilder({ deckId, initialDeck, newSetCount, role, viewer, ow
   const [deleting, setDeleting] = useState(false);
   const [filling, setFilling] = useState(false);
 
-  // Press "/" anywhere (outside a text box) to jump to card search and start typing.
+  // Press "/" anywhere (outside a text box) to jump to the search above the decklist and start typing.
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key !== "/" || e.metaKey || e.ctrlKey || e.altKey) return;
       const el = e.target as HTMLElement | null;
       if (el && (el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName))) return;
       e.preventDefault();
-      setTab("search");
       setSearchFocus((n) => n + 1);
     }
     window.addEventListener("keydown", onKeyDown);
@@ -159,7 +157,7 @@ export function DeckBuilder({ deckId, initialDeck, newSetCount, role, viewer, ow
 
   const expensive = mostExpensive([...deck.commanders, ...deck.mainboard]);
   const scope = searchScope(deck.commanders.map((e) => e.card));
-  const BUDGET_TABS: Tab[] = ["search", "keyword", "suggestions", "synergies", "salt", "simulate", "newcards", "lands"];
+  const BUDGET_TABS: Tab[] = ["suggestions", "synergies", "salt", "simulate", "newcards", "lands"];
 
   return (
     <BudgetProvider>
@@ -246,8 +244,6 @@ export function DeckBuilder({ deckId, initialDeck, newSetCount, role, viewer, ow
               ))}
             </div>
             {BUDGET_TABS.includes(tab) && <BudgetControl />}
-            {tab === "search" && <CardSearch deckId={deckId} mode="card" scope={scope} focusSignal={searchFocus} onAdd={addAnnounced} />}
-            {tab === "keyword" && <KeywordSearch deckId={deckId} scope={scope} onAdd={addAnnounced} />}
             {tab === "import" && <ImportPanel onImport={handleImport} />}
             {tab === "export" && <ExportPanel deck={deck} />}
             {tab === "suggestions" && (
@@ -285,6 +281,10 @@ export function DeckBuilder({ deckId, initialDeck, newSetCount, role, viewer, ow
         </div>
 
         <div className="order-1 flex flex-col gap-8 lg:order-2">
+          <section aria-label="Find cards">
+            <DeckSearch deckId={deckId} scope={scope} focusSignal={searchFocus} onAdd={addAnnounced} />
+          </section>
+
           <section>
             <div className="mb-2 flex items-center justify-between">
               <h2 className="text-sm font-semibold">
