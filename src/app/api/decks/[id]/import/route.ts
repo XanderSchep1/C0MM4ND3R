@@ -45,9 +45,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   let added = 0;
   const touched = new Set<string>();
+  // A line with no card is reported rather than dropped, whatever the reason, so an import never comes up short in silence.
+  const couldntMatch = new Set(unresolved);
   for (const line of lines) {
     const card = resolved.get(line.name);
-    if (!card) continue;
+    if (!card) {
+      couldntMatch.add(line.name);
+      continue;
+    }
     const key = rowKey(card.id, line.zone);
     const quantity = clampQuantity(line.quantity);
     const prev = rows.get(key);
@@ -75,5 +80,5 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }),
   ]);
 
-  return NextResponse.json({ added, unresolved });
+  return NextResponse.json({ added, unresolved: [...couldntMatch] });
 }
