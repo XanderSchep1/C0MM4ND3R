@@ -90,36 +90,61 @@ export async function resolveCardByName(name: string): Promise<ScryfallCard | nu
   return card;
 }
 
+// Scryfall calls a double-faced, split or adventure card "Front // Back", but decklists usually give just the
+// front face, sometimes with a single "/" between faces. Scryfall also ignores case and accents ("Jotun Grunt"
+// finds "Jötun Grunt"), so names are compared through this key.
+const withDoubleSlash = (name: string) => name.replace(/\s*\/+\s*/g, " // ").trim();
+const nameKey = (name: string) =>
+  withDoubleSlash(name)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+// Every name a card goes by: the full name first, then each face (a face never shadows another card's full name).
+function cardNameKeys(cards: ScryfallCard[]): Map<string, ScryfallCard> {
+  const keys = new Map<string, ScryfallCard>();
+  for (const card of cards) keys.set(nameKey(card.name), card);
+  for (const card of cards) {
+    const faces = [...card.name.split(" // "), ...(card.card_faces ?? []).map((face) => face.name)];
+    for (const face of faces) if (!keys.has(nameKey(face))) keys.set(nameKey(face), card);
+  }
+  return keys;
+}
+
 // Bulk name resolution for decklist import, batched via /cards/collection
-// (up to 75 names/request) instead of one fuzzy lookup per line.
+// (up to 75 names/request) instead of one fuzzy lookup per line. Every name
+// given ends up either in `resolved` (keyed by the name as given) or in
+// `unresolved`, never in neither.
 export async function resolveCardsByNames(
   names: string[]
 ): Promise<{ resolved: Map<string, ScryfallCard>; unresolved: string[] }> {
   const resolved = new Map<string, ScryfallCard>();
   const unresolved: string[] = [];
 
-  const { found, notFound } = await getCardsCollection(names.map((name) => ({ name })));
+  const { found } = await getCardsCollection([...new Set(names.map(withDoubleSlash))].map((name) => ({ name })));
   await upsertCardsCache(found);
-  for (const card of found) {
-    const original = names.find((n) => n.toLowerCase() === card.name.toLowerCase());
-    resolved.set(original ?? card.name, card);
+  const foundByName = cardNameKeys(found);
+  const misses: string[] = [];
+  for (const name of names) {
+    const card = foundByName.get(nameKey(name));
+    if (card) resolved.set(name, card);
+    else misses.push(name);
   }
 
   let fuzzyLookups = 0;
-  for (const miss of notFound) {
-    if (!miss.name) continue;
+  for (const miss of misses) {
     // Each fuzzy lookup is a separate Scryfall call, so a list full of junk
     // names can't be allowed to fire hundreds of them.
     if (fuzzyLookups >= MAX_FUZZY_LOOKUPS) {
-      unresolved.push(miss.name);
+      unresolved.push(miss);
       continue;
     }
     fuzzyLookups++;
     // /cards/collection requires exact names; fall back to fuzzy search for
     // typos or alternate/foreign spellings.
-    const card = await resolveCardByName(miss.name);
-    if (card) resolved.set(miss.name, card);
-    else unresolved.push(miss.name);
+    const card = await resolveCardByName(miss);
+    if (card) resolved.set(miss, card);
+    else unresolved.push(miss);
   }
 
   return { resolved, unresolved };

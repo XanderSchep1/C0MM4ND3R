@@ -10,6 +10,9 @@
 ### Changed
 - **Search moved above the decklist, with a Card / Keyword switch.** It used to be two tabs in the narrow column under the commander; it now sits at the top of the wide column, above the Mainboard (and above everything on a phone), with the Budget setting next to it. **Card** finds a card by name (or Scryfall syntax); **Keyword** finds cards by what they do. Switching puts the cursor in the other box and keeps what you typed in each, and `/` focuses whichever one is showing. Results use the extra width: up to five cards across. The sidebar tabs are now Suggestions, Synergies and the rest, with Suggestions open by default; friends invited to a deck get the same search (it suggests instead of adding).
 
+### Fixed
+- **Importing a decklist no longer skips two-faced cards that are listed by their front face.** Most other sites write them that way ("1 Delver of Secrets", "1 Valki, God of Lies") instead of the full "Delver of Secrets // Insectile Aberration"; the import used to add nothing for those lines and say nothing about it, so the deck came up short with no warning. They are added now, as are cards written by their back face, split cards written with one slash ("Fire/Ice"), and names without their accents ("Jotun Grunt" for Jötun Grunt). The same card listed twice in different capitals also no longer loses the second line. And if a line still can't be matched for any reason, its name now appears under **Couldn't match** instead of vanishing.
+
 ## 2026-11-04
 
 ### Security
