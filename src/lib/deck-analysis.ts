@@ -1,5 +1,5 @@
 import type { ScryfallCard } from "./scryfall-types";
-import { cardOracleText, isBasicLand, primaryTypeCategory } from "./card-helpers";
+import { cardOracleText, creatureSubtypes, isBasicLand, primaryTypeCategory } from "./card-helpers";
 
 export interface ThemeDef {
   key: string;
@@ -91,6 +91,11 @@ export interface ThemeCount {
   scryfallClause: string;
 }
 
+export interface CreatureTypeCount {
+  type: string;
+  count: number;
+}
+
 export interface DeckAnalysis {
   totalNonCommander: number;
   landCount: number;
@@ -98,6 +103,9 @@ export interface DeckAnalysis {
   landDeficit: number;
   nonlandCount: number;
   curve: Record<string, number>;
+  // How many creatures of each type the deck has, most common first. A creature with two types (an Elf Warrior)
+  // counts for both.
+  creatureTypes: CreatureTypeCount[];
   themes: ThemeCount[];
 }
 
@@ -105,6 +113,7 @@ export function analyzeDeck(cards: { card: ScryfallCard; quantity: number }[], c
   let landCount = 0;
   let nonlandCount = 0;
   const curve: Record<string, number> = { "0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6+": 0 };
+  const typeCounts = new Map<string, number>();
 
   for (const { card, quantity } of cards) {
     if (primaryTypeCategory(card) === "Land") {
@@ -114,6 +123,7 @@ export function analyzeDeck(cards: { card: ScryfallCard; quantity: number }[], c
     nonlandCount += quantity;
     const bucket = card.cmc >= 6 ? "6+" : String(Math.floor(card.cmc));
     curve[bucket] = (curve[bucket] ?? 0) + quantity;
+    for (const type of creatureSubtypes(card)) typeCounts.set(type, (typeCounts.get(type) ?? 0) + quantity);
   }
 
   const themes: ThemeCount[] = THEMES.filter((t) => !t.requiresColors || t.requiresColors.some((c) => colorIdentity.includes(c))).map((theme) => {
@@ -135,6 +145,7 @@ export function analyzeDeck(cards: { card: ScryfallCard; quantity: number }[], c
     landDeficit: Math.max(0, TARGET_LAND_COUNT - landCount),
     nonlandCount,
     curve,
+    creatureTypes: [...typeCounts].map(([type, count]) => ({ type, count })).sort((a, b) => b.count - a.count || a.type.localeCompare(b.type)),
     themes: themes.sort((a, b) => b.deficit - a.deficit),
   };
 }
